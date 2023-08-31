@@ -1,0 +1,26 @@
+Country,OS,Type,Share
+US,Windows,Desktop,38.07
+US,OSX,Desktop,20.52
+US,iOS,Mobile,19.19
+US,Android,Mobile,14.35
+US,Chrome OS,Desktop,4.11
+UK,Windows,Desktop,30.39
+UK,iOS,Mobile,27.76
+UK,Android,Mobile,26.64
+UK,OSX,Desktop,11.23
+UK,Chrome OS,Desktop,1.96
+France,Android,Mobile,38.9
+France,Windows,Desktop,31.6
+France,iOS,Mobile,19.08
+France,OSX,Desktop,07.07
+France,Linux,Desktop,1.28
+Germany,Windows,Desktop,39.09
+Germany,Android,Mobile,30.4
+Germany,iOS,Mobile,18.79
+Germany,OSX,Desktop,8.15
+Germany,Linux,Desktop,1.49
+India,Android,Mobile,75.98
+India,Windows,Desktop,14.63
+India,iOS,Mobile,3.19
+India,Linux,Desktop,2.85
+India,OSX,Desktop,0.68
