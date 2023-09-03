@@ -5,9 +5,13 @@ Self-made practical example of the application of the Data Science
 Methodology explained in the course in
 https://www.coursera.org/learn/data-science-methodology/
 """
+import json
+import requests
 import pandas as pd
 from IPython.display import Markdown as Md
 from IPython.display import Image, display
+import matplotlib.pyplot as plt
+import plotly.express as px
 
 # # Data Science Methodology
 
@@ -161,8 +165,7 @@ print("")
 # ##### 2. Statistics about the salaries of developers expert in
 # different technologies in those countries from the site
 # [payscale](https://www.payscale.com/)
-salaries_dollar_dataframe: pd.DataFrame = pd.read_csv(
-    "../../../Downloads/salaries_dollars.csv")
+salaries_dollar_dataframe: pd.DataFrame = pd.read_csv("./salaries_dollars.csv")
 print("Salaries in different countries by technology and experience")
 print(salaries_dollar_dataframe)
 print("")
@@ -170,8 +173,7 @@ print("")
 #  ##### 3. Statistics about the preferred OS in different countries
 #  from the site [statscounter]
 #  (https://gs.statcounter.com/os-market-share#monthly-202207-202307)
-OS_share_dataframe: pd.DataFrame = pd.read_csv(
-    "../../../Downloads/OS_share_countries .csv")
+OS_share_dataframe: pd.DataFrame = pd.read_csv("./OS_share_countries.csv")
 print("OS (desktop and mobile) share per country")
 print(OS_share_dataframe)
 
@@ -180,7 +182,7 @@ print(OS_share_dataframe)
 # [International Electrotechnical Commission]
 # (https://www.iec.ch/world-plugs).
 plug_types_dataset: pd.DataFrame = pd.read_csv(
-    "../../../Downloads/plug_types_countries.csv")
+    "./plug_types_countries.csv")
 print("Plug types by country")
 print(plug_types_dataset)
 print("")
@@ -375,11 +377,9 @@ budget_developer_salary: int = \
     int(input("What is the intended salary for a single developer in "
               "dollars? "))
 
-
 choosen_country, selected_experience_level, suggested_os, needed_plug_types \
     = team_selection_model(desired_programming_language,
                            budget_developer_salary)
-
 
 countries_flags: dict = {
     "US": "https://upload.wikimedia.org/wikipedia/commons/a/a9/"
@@ -439,7 +439,6 @@ plug_type_icons: dict = {
          "O/O-button.png"
 }
 
-
 Md("#### The team should be based in __{0}__".format(choosen_country))
 Image(url=countries_flags[choosen_country], width=100, height=50)
 
@@ -461,6 +460,202 @@ for plug_type in needed_plug_types:
     display(Md("#### - __{0}__".format(plug_type)))
     display(Image(url=plug_type_icons[plug_type], width=50, height=50))
 
+
+def get_bar_chart_salaries_technology_in_country_by_experience_level(
+        programming_language: str, country: str) -> None:
+    """
+    Displays a bar chart plot where we compare the salaries of a
+    developer in a given technology in a given country by experience
+    level
+    :param programming_language: Programming language of the developers
+    whose salary we will compare
+    :type programming_language: str
+    :param country: Country of the developers whose salary we will
+    compare
+    :type country: str
+    :return: Displays bar chart
+    """
+    # We create matplotlib subplots
+    fig, ax = plt.subplots()
+
+    # We define the experience levels and set them as labels
+    experience_levels: [str] = ['Entry', 'Average', 'Senior']
+    bar_labels: [str] = experience_levels
+
+    # We filter our data frame with the salaries in dollars to get
+    # the average salary of a developer in the country and programming
+    # language passed as parameters
+    df_salaries_country_technology: pd.DataFrame = salaries_dollar_dataframe[
+        (salaries_dollar_dataframe["Country"] == country) & (
+                salaries_dollar_dataframe[
+                    "Language"] == programming_language)]
+
+    # We set the values of every experience level of a developer as
+    # the values to display (turn them into float)
+    counts: [float] = [float(df_salaries_country_technology["Entry"]),
+                       float(df_salaries_country_technology["Average"]),
+                       float(df_salaries_country_technology["Senior"])]
+
+    # By default, all bars are orange
+    bar_colors: [str] = ['tab:orange', 'tab:orange', 'tab:orange']
+
+    # The bar with the experience levels the algorithm recommended will
+    # turn blue
+    if selected_experience_level == "Entry":
+        bar_colors[0] = 'tab:blue'
+    elif selected_experience_level == "Average":
+        bar_colors[1] = 'tab:blue'
+    elif selected_experience_level == "Senior":
+        bar_colors[2] = 'tab:blue'
+
+    # We set the bar plot
+    ax.bar(experience_levels, counts, label=bar_labels, color=bar_colors)
+
+    # We set the labels, title and legend
+    ax.set_ylabel('Salary in dollars')
+    ax.set_title('Experience level')
+    ax.legend(title='Salaries for {0} developers in {1}'.format(
+        programming_language, country))
+
+    # We display the plot
+    plt.show()
+
+
+Md("#### Salaries for __{0}__ developers in __{1}__ by experience "
+   "level".format(desired_programming_language, choosen_country))
+
+get_bar_chart_salaries_technology_in_country_by_experience_level(
+    desired_programming_language, choosen_country
+)
+
+
+def get_bar_chart_salaries_developer_country_experience_level_by_technology(
+        experience_level: str, country: str) -> None:
+    """
+    Displays a bar chart plot where we compare the salaries of a
+    developer with a given experience in a given country by technology
+    level
+    :param experience_level: Experience level of the developers
+    :type experience_level: str
+    :param country: Country of the developers
+    :type country: str
+    :return: Displays bar chart
+    """
+    # We create matplotlib subplots
+    fig, ax = plt.subplots()
+
+    # We filter the dataframe that contains salaries to get the average
+    # salaries of a developer in a country using a technology passed
+    # as parameters to this function
+    df_salaries_country_experience: pd.DataFrame = salaries_dollar_dataframe[
+        (salaries_dollar_dataframe["Country"] == country)][
+        (["Language", experience_level])]
+    df_salaries_country_experience = df_salaries_country_experience.dropna(
+        subset=[experience_level])
+
+    # The values represented in the bar will be the salaries
+    counts: [float] = df_salaries_country_experience[
+        experience_level].to_list()
+
+    # The axis x will be the different programming languages we offer
+    # in that given country
+    programming_languages: [str] = df_salaries_country_experience[
+        "Language"].to_list()
+
+    # All bars will be orange except the one for the desired programming
+    # language who will be blue
+    bar_colors: [str] = [
+        'tab:blue' if pl == desired_programming_language else 'tab:orange' for
+        pl in programming_languages]
+
+    # Programming languages offered will be the labels
+    bar_labels: [str] = programming_languages
+
+    # We set up the bar plot
+    ax.bar(programming_languages, counts, label=bar_labels, color=bar_colors)
+
+    # We set the labels, title and legend
+    ax.set_ylabel('Salary in dollars')
+    ax.set_title('Programming languages')
+    ax.legend(title='Salaries for {0} developers in {1}'.format(
+        experience_level, country))
+
+    # We display the plot
+    plt.show()
+
+
+Md("#### Salaries for developers with experience level __{0}__ in __{1}__".
+   format(selected_experience_level, choosen_country))
+
+get_bar_chart_salaries_developer_country_experience_level_by_technology(
+    selected_experience_level, choosen_country
+)
+
+
+def display_map_salaries_technology_experience_level_by_country(
+        programming_language: str, experience_level: str) -> None:
+    """
+    Displays coloured map with the different average salaries of
+    developers of a given programming language with a given experience
+    level by country
+    :param programming_language: Programming language used by the
+    developers
+    :type programming_language: str
+    :param experience_level: Experience level of developers
+    :type experience_level: str
+    :return: Displays map
+    """
+    # We filter the dataframe to get the average salaries of developers
+    # in a programming language with a level of experience passed
+    # as parameters
+    df_salaries_technology_experience: pd.DataFrame = \
+        salaries_dollar_dataframe[(
+                salaries_dollar_dataframe[
+                    "Language"] == programming_language)][
+            (["Country", experience_level])]
+
+    # We need to change the values in the column Country to the ids
+    # of the countries in the geo JSON we are going to use to display
+    # the country borders in the map
+    countries_correction: dict = {'US': 'USA', 'UK': 'GBR', 'India': 'IND',
+                                  'Germany': 'DEU', 'France': 'FRA'}
+    for v_key, v_value in countries_correction.items():
+        df_salaries_technology_experience.replace(v_key, v_value, inplace=True)
+
+    # We get the geo json with the borders of every country
+    json_countries_req: requests.Response = requests.get(
+        "https://raw.githubusercontent.com/johan/world.geo.json/master/"
+        "countries.geo.json")
+    countries_json: dict = json.loads(json_countries_req.text)
+
+    # We get the minimum and maximum salaries to be used as range
+    # of the colour scale we will use in the map
+    salary_min: float = df_salaries_technology_experience[
+        experience_level].min()
+    salary_max: float = df_salaries_technology_experience[
+        experience_level].max()
+
+    # We set up the map
+    fig = px.choropleth(df_salaries_technology_experience,
+                        geojson=countries_json,
+                        locations='Country', color=experience_level,
+                        color_continuous_scale="Viridis",
+                        range_color=(salary_min, salary_max),
+                        scope="world",
+                        labels={'Salary': 'unemployment rate'}
+                        )
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+
+    # We display the map
+    fig.show()
+
+
+Md("#### Salaries for developers with experience level "
+   "__{0}__ in __{1}__".format(
+    selected_experience_level, desired_programming_language))
+
+display_map_salaries_technology_experience_level_by_country(
+    desired_programming_language, selected_experience_level)
 
 # ### 10. Feedback
 
