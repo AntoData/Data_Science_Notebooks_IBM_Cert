@@ -244,15 +244,15 @@ print(sprintf("The file chosen was '%s'", chosen_file))
 
 if(function_picked == "1"){
     print("Frequency of words in the text")
-    print(get_frequency_words_in_text(paste0(as.character(getwd()),"/books/",chosen_file)))
+    print(get_frequency_words_in_text(paste0(as.character(getwd()),"/books/", chosen_file)))
 }else if(function_picked == "2"){
     chosen_files <- c()
     chosen_file <- paste0(as.character(getwd()),"/books/",chosen_file)
     chosen_files <- append(chosen_files, chosen_file)
-    file_choice <- "-1"
-    while(file_choice != "0"){
+    file_choice <- -1
+    while(file_choice != 0){
         file_choice <- as.numeric(readline("Pick another file, give me the index of the file you want to explore or select 0: "))
-        if(file_choice == "0"){
+        if(file_choice == 0){
             break
         }
         chosen_file <- files_list[file_choice]
@@ -280,7 +280,7 @@ if(function_picked == "1"){
     chosen_file2 <- files_list[file_choice]
     chosen_file <- paste0(as.character(getwd()),"/books/",chosen_file)
     chosen_file2 <- paste0(as.character(getwd()),"/books/",chosen_file2)
-    print("The words in first file we selected but not in the second are:")
+    print("The words in first file we selected that are more frequent than in the second are:")
     print(compare_frequency_of_common_words(chosen_file, chosen_file2))
 }else if(function_picked == "6"){
     chosen_file <- paste0(as.character(getwd()),"/books/",chosen_file)
