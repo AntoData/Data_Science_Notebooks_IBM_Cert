@@ -324,7 +324,7 @@ def div_pi_by(n: int):
 try:
     result: float = div_pi_by(0)
 except ArithmeticError as f:
-    print(f.__context__)  # Exception returned by context was the
+    print(f.__cause__)  # Exception returned by context was the
     # original one
 
 
