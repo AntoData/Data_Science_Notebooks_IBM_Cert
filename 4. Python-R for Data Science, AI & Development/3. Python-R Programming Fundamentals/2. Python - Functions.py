@@ -30,20 +30,18 @@ print(abs(-3))
 # third party library. Like the examples above
 # - __Custom/User-defined functions__: These are functions that are
 # __created and defined by developers__. The syntax is as follows:
-#     - __<font color="#fc0362">def</font>__: To start defining a
-#     function we have to use this keyword
+#     - def: To start defining a function we have to use this keyword
 #     - __Function name__: After def, we have to provide a name for the
 #     function
-#     - __Argument list__: Between <font color="#fc5e03">()</font> we
-#     have to provide the list of parameters the function will receive
-#     and therefore will be available in the function.
+#     - __Argument list__: Between () we have to provide the list of
+#     parameters the function will receive and therefore will be
+#     available in the function.
 #     This is __optional__. The () can be empty if we don't want to
 #     provide any arguments to the function
-#     - __<font color="#fcd703">code</font>__: Now we can write the code
-#     that will be executed after calling our function
-#     - __<font color="#df03fc">return</font>__: This one is
-#     __optional__ and only needed if we want the function to return a
-#     value
+#     -code: Now we can write the code that will be executed after
+#     calling our function
+#     - return: This one is optional and only needed if we want the
+#     function to return a value
 #
 # For example, we can define a function that takes a string argument
 # and prints it in reverse:
