@@ -297,7 +297,7 @@ except ZeroDivisionError as e:
         print("ZeroDivisionError was raised")
         print(arr[4])
     except IndexError as f:
-        print(f.__context__)
+        print(f.__cause__)
         print("IndexError was raised")
 
 
