@@ -711,3 +711,8 @@ class Triangle:
 
 triangle = Triangle(2, 5, 90, 30, 60)
 print(triangle.get_area())
+
+
+# __NOTE__: Check this other example where instead of the function
+# __init__ we decorate the functions that manage attribute get and set:
+# https://github.com/AntoData/PrivateAttributesProject
