@@ -579,3 +579,127 @@ print(patient1.v_id)
 # the class Patient that uses the class attribute instances that
 # was appended to our class the same way
 print(Patient.get_instances())
+
+
+# - ### type() to create classes
+#
+# __type(name, bases, dict)__ can be used also to create classes
+# dynamically
+
+# First we define a parent class that will be added to the tuple bases
+# to be the parent class of our new class
+
+class RandomStringId:
+    """
+    Creates a 5 digit string id which has to be unique
+
+    :cvar used_ids: Here we keep record of ids that have been already
+    given to other instances
+    """
+
+    used_ids: [str] = []
+
+    @classmethod
+    def create_random_new_id(cls) -> str:
+        """
+        Returns a unique 5 digit string id for an object
+
+        :return: Unique 5 digit string id
+        """
+
+        # We get a random number between 0 and 99999 and convert it to
+        # string
+        str_number_id: str = str(random.randint(0, 99999))
+        len_str_id: int = len(str_number_id)
+        len_zeros_id: int = 5 - len_str_id
+        # We fill the string with 0s until the whole string (0s + id)
+        # has length 5
+        str_id: str = "0" * len_zeros_id + str_number_id
+        # If the id had been already used, we start again and try to
+        # get a new one
+        if str_id in cls.used_ids:
+            str_id = cls.create_random_new_id()
+        else:
+            # Otherwise, we add it to the list of used ids
+            cls.used_ids.append(str_id)
+        return str_id
+
+
+# Now we define:
+# - __init__ for the new class
+# - A method called get_days_insurance_contract that returns the number
+# of days since the insurance contract was signed
+# - A class parameter called instances that will count the number of
+# instances of our class
+
+
+def __init__(self, name: str, surname: str, country: str, age: int,
+             date_insurance: datetime, active: bool):
+    """
+    Constructor of class Patient
+
+    :param name: Name of the patient
+    :type name: str
+    :param surname: Surname of the patient
+    :type surname: str
+    :param country: Country where patient was born
+    :type country: str
+    :param age: Age of the patient
+    :type age: int
+    :param date_insurance: Date when the contract was signed
+    :type date_insurance: datetime
+    :param active: Is contract active
+    :type active: bool
+    """
+
+    self.name: str = name
+    self.surname: str = surname
+    self.country: str = country
+    self.age: int = age
+    self.date_insurance: datetime = date_insurance
+    self.active: bool = active
+    DynamicPatient.instances += 1
+
+    # We use the function create_random_new_id we should have access
+    # to now as a class method thanks to the metaclass that added it
+    # to the class member of this class
+    self.v_id = RandomStringId.create_random_new_id()
+
+
+def get_days_insurance_contract(self) -> int:
+    """
+    Returns number of days passed since contract was signed
+
+    :return: Number of days passed since contract was signed
+    """
+
+    now: datetime = datetime.datetime.now()
+    time_contract: datetime.timedelta = now - self.date_insurance
+    return time_contract.days
+
+
+instances: int = 0
+
+# Now we create the parameter bases that will be used by __type__ to
+# build our class
+
+patient_bases: tuple = (RandomStringId,)
+
+# Also now we create the parameter __dict__ for our new class
+
+patient__dict__: dict = {"instances": instances, "__init__": __init__,
+                         "get_days_insurance_contract":
+                             get_days_insurance_contract}
+
+# We can now create the class and create instances of it
+
+DynamicPatient = type("Patient", patient_bases, patient__dict__)
+
+dynamic_patient: DynamicPatient = DynamicPatient("John", "Doe", "Canada", 41,
+                                                 datetime.datetime(year=2010,
+                                                                   month=5,
+                                                                   day=30),
+                                                 True)
+
+print(DynamicPatient.instances)
+print(dynamic_patient.get_days_insurance_contract())
