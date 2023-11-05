@@ -1,0 +1,3 @@
+Hello Python!!!!
+This is a text file
+The information is organized in lines
