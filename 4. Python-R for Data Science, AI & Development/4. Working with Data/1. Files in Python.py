@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+import datetime
 import io
 import errno
 
@@ -268,3 +269,127 @@ else:
     pass
 finally:
     file_example.close()
+
+
+# ### Writing Files With Write
+#
+# ### Function write
+# To write a file we use the following function:
+#
+# file.__write__("line to write")
+#
+# Remember __we have to open the stream before using one of the
+# following modes__ explained above:
+# - w
+# - a
+# - r+
+# - w+
+
+# ##### Mode w: Creates the file, it will truncate the file to 0
+
+file_name: str = "./file_example_{0}.txt".format(
+    int(datetime.datetime.now().timestamp()))
+
+file_write = open(file_name, mode="w")
+
+# File is created and now we can use write
+file_write.write("File was created")
+file_write.close()
+
+
+# If we use __write__ again, it will truncate the file to 0 first and
+# then add the line. So we will lose the first line written
+
+file_write = open(file_name, mode="w")
+file_write.write("First line was replaced by this")
+file_write.close()
+
+
+# ##### Mode a: Creates the file, it will append new lines at the end
+# of the file (file is never truncated)
+
+file_name: str = "./file_example_{0}.txt".format(
+    int(datetime.datetime.now().timestamp()))
+
+file_append = open(file_name, mode="a")
+
+# File is created and now we can use write
+file_append.write("File was created\n")
+file_append.close()
+
+
+# If we use __write__ again, it will append the new line at the end
+# of the file
+
+file_append = open(file_name, mode="a")
+
+# File is created and now we can use write
+file_append.write("New line is added\n")
+file_append.close()
+
+
+# ##### Mode r+: File has to exist, it will append new lines at the end
+# of the file (file is never truncated)
+
+file_name_append: str = "./file_example_{0}.txt".format(
+    int(datetime.datetime.now().timestamp()))
+try:
+    file_read_plus = open(file_name_append, mode="r+")
+except FileNotFoundError as e:
+    print("In mode a, file has to exist: {0}".format(e))
+
+# But we add lines at the end of the file
+file_read_plus1 = open("example_r+.txt", mode="r+")
+file_read_plus1.write("First line\n")
+file_read_plus1.write("Second line\n")
+file_read_plus1.close()
+
+# The line is added at the end of the file
+
+
+# However, if we open again the file we start from the beginning
+file_read_plus1 = open("example_r+.txt", mode="r+")
+file_read_plus1.write("Replace first line\n")
+file_read_plus1.write("Replace second line\n")
+file_read_plus1.close()
+
+# The line is added at the end of the file
+
+
+# We can also read the file
+with open("example_r+.txt", mode="r+") as file_read_plus1:
+    for line in file_read_plus1:
+        print(line)
+
+
+# ##### Mode w+: File does not have to exist, it will truncate the file
+
+file_name_write_plus: str = "./file_example_{0}.txt".format(
+    int(datetime.datetime.now().timestamp()))
+
+file_write_plus = open(file_name_write_plus, mode="w+")
+# File does not have to exist
+file_write_plus.write("First line file\n")
+file_write_plus.write("Second line file\n")
+file_write_plus.close()
+
+
+# File is truncated if we open it again in that mode
+
+file_write_plus = open(file_name_write_plus, mode="w+")
+file_write_plus.close()
+
+
+# We can also read the file
+
+# In[47]:
+
+
+file_write_plus = open(file_name_write_plus, mode="w+")
+# File does not have to exist
+file_write_plus.write("First line file\n")
+file_write_plus.write("Second line file\n")
+file_write_plus.seek(0, 0)  # We need to reset the pointer to print the
+# file
+for line in file_write_plus:
+    print(line)
