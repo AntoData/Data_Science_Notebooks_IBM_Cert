@@ -4,12 +4,12 @@ import datetime
 import shutil
 
 # #### Exercise 1:
-#
+# 
 # We have this file where words after a period are not capitalized. Copy
 # and correct that file in just one iteration, then without closing the
 # file and creating a new stream test that the book has correctly copied
 # and fixed.
-#
+# 
 # __File name__: file_exercise1.txt
 
 # We first create a generator of names for our files
@@ -94,10 +94,10 @@ finally:
 
 
 # #### Exercise 2:
-#
+# 
 # Same as above but in this case, we can't create a new file. We have to
 # modify the current file
-#
+# 
 # __File name__: file_exercise1.txt -> Execute the function below to copy it
 
 file_to_work_with: str = "./file_example_{0}.txt".format(int(
@@ -144,8 +144,7 @@ with open(file_to_work_with, mode="r+") as file_var:
                     else:
                         capitalized_sentence: str = ". " + capital_letter + \
                                                     sentence[1:]
-                # Now we add the capitalized sentence to the variable
-                # that has our text capitalized
+                # Now we write the capitalized sentence to the copy file
                 capitalized_text += capitalized_sentence
             line = file_var.readline()
     except IndexError as e:
@@ -157,19 +156,15 @@ with open(file_to_work_with, mode="r+") as file_var:
     else:
         print("No exceptions, did we get to the end of file")
     print(capitalized_text)
-    # We set the pointer to the beginning
     file_var.seek(0, 0)
-    # We write the new text (plus the last period)
-    file_var.write(capitalized_text + ".")
-    # We truncate the rest (so the rest of the file is clean)
-    file_var.truncate()
+    file_var.write(capitalized_text)
 
 
 # #### Exercise 3:
-#
+# 
 # Replace the word four by five in the file. You need to do this in the
 # file itself (can't create a new one)
-#
+# 
 # __File name__: file_exercise3.txt -> Execute the function below to
 # copy it
 
@@ -179,83 +174,11 @@ file_to_work_with: str = "./file_example_{0}.txt".format(
 shutil.copyfile("file_exercise3.txt", file_to_work_with)
 
 with open(file_to_work_with, mode="r+") as file_var:
-    # We read the first line
     line = file_var.readline()
-    # We will save the position to go back
-    # after reading a line
     pos_to_go_back: int = 0
-    # While we have lines in the file
     while line:
-        # If the line says four
         if "four" in line.lower():
-            # We set the pointer to the beginning of the line
             file_var.seek(pos_to_go_back)
-            # We write five which will overwrite the
-            # previous line
             file_var.write("Five")
-        # We save the pointer position for the
-        # next iteration
         pos_to_go_back = file_var.tell()
-        # We read a new line
         line = file_var.readline()
-
-# #### Exercise 4:
-
-# You are a spy that has received a file that will contain
-# instructions on how to get to our secret headquarters. The file will
-# contain regular text until we get the word betwixt. After that word
-# the instructions will start until the end of the file. You need to
-# extract those instructions, remove them from the original file and
-# then send them to a new file
-
-file_to_work_with: str = "./file_example_{0}.txt".format(int(
-    datetime.datetime.now().timestamp()))
-
-shutil.copyfile("file_exercise4.txt", file_to_work_with)
-
-# We create the variables that will contain the instructions
-# and the position to go back to in the file where
-# the instructions started and we have to truncate the file
-text: str = ""
-pos: int = 0
-# We open the original file
-with open(file_to_work_with, mode="r+") as file_var:
-    # We set the flag to activate once we have found the
-    # keyword
-    found: bool = False
-    # We go line by line
-    for line in file_var:
-        # If we have already found the word, we add the whole line
-        # to the text that will contain the instruction
-        if found:
-            text += line
-        # If the secret word is contained in this line
-        if "betwixt" in line:
-            # Flag is true
-            found = True
-            # We find the index of the letter
-            index: int = line.find("betwixt")
-            # We add the position of the word to
-            # the position in the pointer
-            pos += index
-            # We only get the text that contains the instructions
-            # in this line
-            text = line[index + len("betwixt"):]
-        else:
-            # If the word is not in the line
-            if not found:
-                # and we have not found the word
-                # We add the whole line to the positions
-                pos += len(line)
-    # We set the pointer back to where the secret word was found
-    file_var.seek(pos, 0)
-    # We truncate the file before the secret word was found
-    file_var.truncate()
-
-# New file name
-file_instruction: str = "./file_example_{0}.txt".format(int(
-    datetime.datetime.now().timestamp()))
-print("File with instructions: {0}".format(file_instruction))
-# We create the new file and write the instructions
-with open(file_instruction, mode="w") as file_var:
-    file_var.write(text)
