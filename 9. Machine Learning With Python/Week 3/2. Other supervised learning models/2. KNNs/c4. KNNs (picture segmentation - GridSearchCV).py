@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.io import imread
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score
 
 # Load image
@@ -57,43 +58,29 @@ y_train = np.array([label for _, label in labeled_train])
 # Test set
 x_test = np.array([[*image[y, x], x / w, y / h] for (y, x), _ in labeled_test])
 y_test = np.array([label for _, label in labeled_test])
+print("6. Creating the parameters K for the GridSearchCV model")
+k_params: [int] = [x for x in range(1, 10)]
+params: dict = {"n_neighbors": k_params}
+print("6. Building the KNN Classifier model")
+knn_img: KNeighborsClassifier = KNeighborsClassifier()
+print("7. Building the GridSearchCV object")
+grid_img: GridSearchCV = GridSearchCV(knn_img, param_grid=params, cv=5,
+                                      scoring="accuracy")
+print("8. Training the model")
+grid_img.fit(x_train, y_train)
+print("9. Getting best k and best score")
+best_k: dict = grid_img.best_params_
+best_score: float = grid_img.best_score_
+print("Best k = {0}".format(best_k))
+print("Best score = {0}".format(best_score))
+print("10. Using best K to apply segmentation")
+knn_img = KNeighborsClassifier(n_neighbors=best_k["n_neighbors"])
+print("10.1 Training the model")
+knn_img.fit(x_train, y_train)
 
-deep_k = 15
-scores_by_k: dict = {}
-acc = np.zeros(deep_k)
-std_acc = np.zeros(deep_k)
-print("6. Building the model for all ks")
-for k in range(1, deep_k + 1):
-    print("FOR K = {0}".format(k))
-    knn_img: KNeighborsClassifier = KNeighborsClassifier(n_neighbors=k)
-    print("6.1 Training the model")
-    knn_img.fit(x_train, y_train)
-    # ---------- Accuracy Evaluation ----------
-    y_pred = knn_img.predict(x_test)
-    acc_sc: float = accuracy_score(y_test, y_pred)
-    print("Accuracy score = {0}".format(acc_sc))
-    scores_by_k[k] = acc_sc
-    acc[k - 1] = acc_sc
-    std_acc[k - 1] = np.std(y_pred == y_test) / np.sqrt(y_pred.shape[0])
-
-best_k: int = max(scores_by_k.items(), key=operator.itemgetter(1))[0]
-print("Best K = {0}".format(best_k))
-print("Accuracy score = {0}".format(scores_by_k[best_k]))
-
-plt.plot(range(1, deep_k+1), acc, 'g')
-plt.fill_between(range(1, deep_k+1), acc - 1 * std_acc, acc + 1 * std_acc,
-                 alpha=0.10)
-plt.legend(('Accuracy value', 'Standard Deviation'))
-plt.ylabel('Model Accuracy')
-plt.xlabel('Number of Neighbors (K)')
-plt.tight_layout()
-plt.show()
-
-print("7. Showing best segmentation")
+print("10.2 Predicting using the model")
 # Predict full segmentation
-knn_img_best: KNeighborsClassifier = KNeighborsClassifier(n_neighbors=best_k)
-knn_img_best.fit(x_train, y_train)
-y_pred_all = knn_img_best.predict(x_all)
+y_pred_all = knn_img.predict(x_all)
 segmentation = y_pred_all.reshape((h, w))
 
 # ---------- Visualization ----------
@@ -105,6 +92,6 @@ plt.axis('off')
 
 plt.subplot(1, 2, 2)
 plt.imshow(segmentation, cmap='tab10')
-plt.title(f"KNN Segmentation (Accuracy: {scores_by_k[best_k]: .2f})")
+plt.title(f"KNN Segmentation (Accuracy: {best_score: .2f})")
 plt.axis('off')
 plt.show()
