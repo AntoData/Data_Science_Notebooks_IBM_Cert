@@ -103,8 +103,8 @@ if not check_overlap(feo_bounds, nir_bounds):
     raise ValueError("FeO map and NIR mosaic do not overlap!")
 
 print("2. Reproject the datasets so pixels, data match")
-print("2.1 Reprojectting dataset FeO to dataset NIR grid so the area matches")
-# Reprojectting dataset FeO to dataset NIR grid so the area matches
+print("2.1 Re-projecting dataset FeO to dataset NIR grid so the area matches")
+# Re-projecting dataset FeO to dataset NIR grid so the area matches
 feo_resampled = np.empty(nir_shape, dtype=np.float32)
 reproject(
     source=feo_data,
@@ -116,7 +116,7 @@ reproject(
     resampling=Resampling.nearest  # discrete categories
 )
 
-print("2.2 Reprojectting NIR image to dataset FeO grid so the area matches")
+print("2.2 Re-projecting NIR image to dataset FeO grid so the area matches")
 # Reproject NIR image to its own grid just to be sure
 nir_resampled = np.empty(nir_shape, dtype=nir_band.dtype)
 reproject(
@@ -139,9 +139,9 @@ print("4.1 Masking invalid data points in FeO")
 # Masking invalid values in FeO
 mask_invalid = feo_resampled < 0
 feo_resampled = np.ma.masked_array(feo_resampled,
-                                               mask=mask_invalid)
+                                   mask=mask_invalid)
 
-print("5. Flatenning our data to use it later to train")
+print("5. Flattening our data to use it later to train")
 # Use the same mask to index all flattened arrays
 flat_feo = feo_resampled.data.ravel()
 flat_mask = ~feo_resampled.mask.ravel()

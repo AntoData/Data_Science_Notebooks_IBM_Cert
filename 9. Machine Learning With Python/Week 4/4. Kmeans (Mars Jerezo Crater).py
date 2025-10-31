@@ -95,20 +95,18 @@ with rasterio.open(dem_path) as dem_src, rasterio.open(img_path) as img_src:
 
 print("5. Preprocessing, stacking the features of the elevation "
       "image and th resampled image")
-# Stack features (DEM + resampled image), flatten for clustering
-x_var: np.ndarray = np.stack([dem_data.flatten(),
-                              img_resampled.flatten()], axis=1)
+# Stack features (DEM), flatten for clustering
+x_var: np.ndarray = np.stack([dem_data.flatten()], axis=1)
 
 print("5.1 Masking invalid pixels, pixels without data (No Data, Nan...)")
 # Mask invalid pixels (NaN or nodata in either input)
 valid_mask: np.ndarray = ~np.isnan(x_var).any(axis=1) & \
-                         (x_var[:, 0] != dem_src.nodata) \
-                         & (x_var[:, 1] != img_src.nodata)
+                         (x_var[:, 0] != dem_src.nodata)
 
 x_valid: np.ndarray = x_var[valid_mask]
 
 # We get best k
-# print("6. Let's apply the elbow method to get the best k for our Kmeans model")
+# print("6. Let's apply elbow method to get the best k for our Kmeans model")
 # inertias: [] = []
 # k_values: [int] = range(1, 10)  # Try k from 1 to 9
 #

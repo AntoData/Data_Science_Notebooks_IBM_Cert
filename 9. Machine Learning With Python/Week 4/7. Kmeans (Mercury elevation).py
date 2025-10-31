@@ -56,6 +56,7 @@ display this classification over the image
 Mercury_MESSENGER_Global_Mosaic_665m.tif. As both refer to the same area
 """
 
+
 def check_overlap(bounds1: rasterio.coords.BoundingBox,
                   bounds2: rasterio.coords.BoundingBox) -> bool:
     """
@@ -134,9 +135,9 @@ if not check_overlap(dem_bounds, mos_bounds):
     raise ValueError("DEM map and NIR mosaic do not overlap!")
 
 print("2. Reproject the datasets so pixels, data match")
-print("2.1 Reprojectting dataset DEM to dataset mosaic "
+print("2.1 Re-projecting dataset DEM to dataset mosaic "
       "grid so the area matches")
-# Reprojectting dataset DEM to dataset NIR grid so the area matches
+# Re-projecting dataset DEM to dataset NIR grid so the area matches
 dem_resampled = np.empty(mos_shape, dtype=np.float32)
 reproject(
     source=dem_data,
@@ -148,7 +149,7 @@ reproject(
     resampling=Resampling.nearest  # discrete categories
 )
 
-print("3. Reprojectting Mosaic image to dataset DEM grid so the area matches")
+print("3. Re-projecting Mosaic image to dataset DEM grid so the area matches")
 # Reproject NIR image to its own grid just to be sure
 mos_resampled = np.empty(mos_shape, dtype=mos_band.dtype)
 reproject(
@@ -168,7 +169,7 @@ mask_invalid = dem_resampled < 0
 dem_resampled = np.ma.masked_array(dem_resampled,
                                    mask=mask_invalid)
 
-print("5. Flatenning our data to use it later to train")
+print("5. Flattening our data to use it later to train")
 # Use the same mask to index all flattened arrays
 flat_dem = dem_resampled.data.ravel()
 flat_mask: np.ndarray = ~dem_resampled.mask.ravel()
