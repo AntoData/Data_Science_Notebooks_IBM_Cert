@@ -6,92 +6,78 @@ from sklearn.metrics import accuracy_score, classification_report, \
     precision_score, recall_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split
 
 """
-Source: https://skyserver.sdss.org/dr17/en/tools/search/sql.aspx
-Query:
- SELECT TOP 100
-  s.class         AS ObjectClass,   -- STAR, GALAXY, or QSO
-  s.z             AS Redshift,
-  p.psfMag_u      AS u,   p.psfMag_g   AS g,
-  p.psfMag_r      AS r,   p.psfMag_i   AS i,
-  p.psfMag_z      AS z,
-  p.psfMagErr_u   AS err_u, p.psfMagErr_g AS err_g,
-  p.psfMagErr_r   AS err_r, p.psfMagErr_i AS err_i,
-  p.psfMagErr_z   AS err_z,
-  sp.teffadop     AS Teff,
-  sp.loggadop     AS logg,
-  sp.fehadop      AS FeH
-FROM SpecObjAll AS s
-JOIN PhotoObjAll AS p
-  ON s.bestObjID = p.objID
-JOIN sppParams AS sp
-  ON s.specObjID = sp.specObjID
-WHERE s.class IN ('<VAR>')
-
-Where VAR can be STAR, GALAXY or QSO
-Dependent variable y
-Column: ObjectClass	
-Distinct astrophysical populations: stars vs. galaxies vs. quasars
+Source: https://data.nasa.gov/dataset/meteorite-landings
 
 Independent variable x
-Columns:	
-Redshift    Cosmological Doppler shift distinguishes Galactic vs. 
-extragalactic objects
-u, g, r, i, z	Broadband SED shapes differ by object type 
-(stellar, galactic, AGN disk)
-err_u, err_g, err_r, err_i, err_z	Measurement precision correlates 
-with brightness and class identification
+Columns:
+GeoLocation: Divided in
+Latitude: Geographical coordinates of the meteorite landing. These can 
+help identify regional patterns in meteorite distribution.
+Longitude: Same as above
+
+Year: The year the meteorite was found or observed falling. This can 
+capture temporal trends in meteorite discoveries.
+
+Fall Status: Indicates whether the meteorite was observed falling 
+("Fell") or was found later ("Found"). This categorical variable can 
+be encoded numerically for modeling.
+
+Recclass: The classification of the meteorite, indicating its 
+composition. This categorical variable can be transformed using 
+one-hot encoding to be used in the model.
 """
 
+# 1. Open the CSV file
+print("1. We open the dataset")
+df: pd.DataFrame = pd.read_csv('Meteorite_Landings.csv')
 
-# 0.a As except for ObjectClass all our columns should be numeric,
-# we provide this function which will turn any column to float
+print("2. We preprocess the data and clean it")
+# 2. Data preprocessing
+# 2.1 Drop rows with empty values
+df.dropna(inplace=True)
 
+# 2.2 Transform the column fall_flag to numeric
+df['fall_flag'] = [0 if x == "Fell" else 1 for x in df['fall']]
 
-def column_to_float(df: pd.DataFrame):
-    """
-    Converts every column but column ObjectClass to float
+# 2.3 Separate the coordinates in Geolocation into two numeric fields
+# 2.3.a First, clean the field, remove the () and split by ,
+df['GeoLocation_clean'] = \
+    df['GeoLocation'].str.replace("(", "").str.replace(")", "").str.split(",")
+# 2.3.b Second create a new column for each value in the array created
+# in each row above
+df["Latitude"] = [x[0] for x in df["GeoLocation_clean"]]
+df["Longitude"] = [x[1] for x in df["GeoLocation_clean"]]
 
-    :param df: Dataframe that contains variables x and y
-    :return: Dataframe where columns that form variable x are float
-    """
-    for column_ in df.columns:
-        if column_ != "ObjectClass":
-            df[column_] = df[column_].str.replace('.', '')
-            df[column_] = df[column_].astype('float64')
-    return df
+# 2.4 We have to convert the column recclass that has multiple possible
+# values into numeric. In order to do so, we will create a new
+# column for each value and assign 0 if that row did not have that
+# value or 1 if it did
+recclass_encoded = pd.get_dummies(df['recclass'], prefix='class')
+df = pd.concat([df, recclass_encoded], axis=1)
 
+# 2.5 Convert mass_class to 3 different groups
+mass_min: float = df['mass (g)'].min() - 1
+mass_max: float = df['mass (g)'].max() + 1
+df['mass_class']: pd.DataFrame = pd.cut(df['mass (g)'],
+                                        bins=[mass_min, 1000, 10000,
+                                              mass_max],
+                                        labels=["Small", "Medium", "Large"])
 
-# 1. We open the dataset
-print("1. Opening our dataset")
-df_skyserver: pd.DataFrame = pd.read_csv('Skyserver_Star_Galaxy_QSO.csv')
-print(df_skyserver.head())
+# 2.6 Leave only the columns we need in the dataframe
+df_clean: pd.DataFrame = df.drop(columns=["name", "id", "recclass",
+                                          "reclat", "reclong", "GeoLocation",
+                                          "mass (g)", "fall", "nametype",
+                                          "GeoLocation_clean"])
 
-print("2. Preprocessing")
-print("2.1 Converting all columns to type float")
-# 3. We convert columns in x to float / Data Preprocessing
-df_skyserver = column_to_float(df_skyserver)
-print(df_skyserver.head())
-
-print("2.2 Checking column types")
-# 4. Let's check now the types of the columns and the content
-print(df_skyserver.dtypes)
-print(df_skyserver.head())
-
-print("2.3 Building variable X")
-# 5. Let's compose variable x
-df_x: pd.DataFrame = df_skyserver[['Redshift',
-                                   'u', 'g', 'r', 'i', 'z',
-                                   'err_u', 'err_g', 'err_r', 'err_i',
-                                   'err_z']]
-print(df_x)
-print("2.4 Building variable y")
-# 6. Let's get variable y
-df_y: pd.DataFrame = df_skyserver['ObjectClass']
-print(df_x)
+# 2.7 Create independent variable x with the corresponding columns
+df_x: pd.DataFrame = df_clean.drop(columns=["mass_class"])
+print(df_x.columns)
+# 2.8 Create dependent variable y with the corresponding column
+df_y = df_clean["mass_class"]
 
 print("2.5 Applying Standard Scaler to variable X")
 # 7. Let's apply the standard scaler to x
@@ -124,36 +110,38 @@ decision_tree_model.fit(x_train, y_train)
 print("3a.2 Predicting the labels of the test set of x")
 y_pred_des_tree: np.ndarray = decision_tree_model.predict(x_test)
 
-print("3b Building the K Nearest Neighbor object with best n_neighbors: 14")
-knn_model: KNeighborsClassifier = KNeighborsClassifier(n_neighbors=14)
+print("3b Building the SVM object")
+svm_model: LinearSVC = LinearSVC(
+    class_weight='balanced', random_state=31, loss="squared_hinge",
+    fit_intercept=True, max_iter=5000)
 print("3b.1 Training the model with our training sets of x and y")
-knn_model.fit(x_train, y_train)
+svm_model.fit(x_train, y_train)
 
 print("3b.2 Using the model to predict values in the test set")
-y_pred_knn: np.ndarray = knn_model.predict(x_test)
+y_pred_svm: np.ndarray = svm_model.predict(x_test)
 
 print("4. Comparing accuracy scores")
 accuracy_score_des_tree: float = accuracy_score(y_test, y_pred_des_tree)
-accuracy_score_knn: float = accuracy_score(y_test, y_pred_knn)
+accuracy_score_svm: float = accuracy_score(y_test, y_pred_svm)
 print("Accuracy level Decision Tree Classifier Model = {0}".format(
     accuracy_score_des_tree))
-print("Accuracy level K-Nearest Neighbor Model = "
-      "{0}".format(accuracy_score_knn))
-if accuracy_score_des_tree > accuracy_score_knn:
+print("Accuracy level Support Vector Machine = "
+      "{0}".format(accuracy_score_svm))
+if accuracy_score_des_tree > accuracy_score_svm:
     print("Decision Tree Classifier model was more accurate in this occasion")
-elif accuracy_score_des_tree == accuracy_score_knn:
+elif accuracy_score_des_tree == accuracy_score_svm:
     print("Both have the same level of accuracy")
 else:
-    print("K Nearest Neighbor model was more accurate in this occasion")
+    print("Support Vector Machine model was more accurate in this occasion")
 
 print("5. Getting Classification Reports")
 classification_report_des_tree: str = classification_report(y_test,
                                                             y_pred_des_tree)
-classification_report_knn: str = classification_report(y_test, y_pred_knn)
+classification_report_svm: str = classification_report(y_test, y_pred_svm)
 print("Classification report Decision Tree Classifier")
 print(classification_report_des_tree)
-print("Classification report KNN")
-print(classification_report_knn)
+print("Classification report Support Vector Machine")
+print(classification_report_svm)
 
 print("6. Comparing precision by class")
 # Setting index for the different classes
@@ -162,22 +150,22 @@ classes_labels: {int: str} = {
 print(classes_labels)
 precision_scores_des_tree: np.ndarray = \
     precision_score(y_test, y_pred_des_tree, average=None)
-precision_scores_knn: np.ndarray = \
-    precision_score(y_test, y_pred_knn, average=None)
+precision_scores_svm: np.ndarray = \
+    precision_score(y_test, y_pred_svm, average=None)
 print("6.1 Going class by class")
 for i in range(0, len(precision_scores_des_tree)):
     print("Class = {0}".format(classes_labels[i]))
     print("Decision Tree Classifier = {0}".format(
         precision_scores_des_tree[i]))
-    print("KNN = {0}".format(precision_scores_knn[i]))
-    if precision_scores_des_tree[i] > precision_scores_knn[i]:
+    print("SVM = {0}".format(precision_scores_svm[i]))
+    if precision_scores_des_tree[i] > precision_scores_svm[i]:
         print("For class = {0} Decision Tree Classifier is more "
               "precise".format(classes_labels[i]))
-    elif precision_scores_des_tree[i] == precision_scores_knn[i]:
+    elif precision_scores_des_tree[i] == precision_scores_svm[i]:
         print("For class = {0} both are equally "
               "precise".format(classes_labels[i]))
     else:
-        print("For class = {0} KNN is more precise".format(classes_labels[i]))
+        print("For class = {0} SVM is more precise".format(classes_labels[i]))
     print("That means of all objects classified as {0} more of them "
           "belonged to that class (ratio of them was "
           "better)".format(classes_labels[i]))
@@ -186,22 +174,22 @@ for i in range(0, len(precision_scores_des_tree)):
 print("7. Comparing Recall scores by class")
 recall_score_des_tree: np.ndarray = recall_score(
     y_test, y_pred_des_tree, average=None)
-recall_score_knn: np.ndarray = recall_score(y_test, y_pred_knn, average=None)
+recall_score_svm: np.ndarray = recall_score(y_test, y_pred_svm, average=None)
 
-for i in range(0, len(recall_score_knn)):
+for i in range(0, len(recall_score_svm)):
     print("For class = {0}".format(classes_labels[i]))
     print("Recall score for Decision Tree Classifier = {0}".format(
         recall_score_des_tree[i]))
-    print("Recall score for KNN = {0}".format(
-        recall_score_knn[i]))
-    if recall_score_des_tree[i] > recall_score_knn[i]:
+    print("Recall score for SVM = {0}".format(
+        recall_score_svm[i]))
+    if recall_score_des_tree[i] > recall_score_svm[i]:
         print("For class = {0} Decision Tree Classifier has better "
               "recall".format(classes_labels[i]))
-    elif recall_score_des_tree[i] == recall_score_knn[i]:
+    elif recall_score_des_tree[i] == recall_score_svm[i]:
         print("For class = {0} both have the same "
               "recall".format(classes_labels[i]))
     else:
-        print("For class = {0} KNN has better recall".format(
+        print("For class = {0} SVM has better recall".format(
             classes_labels[i]))
     print("This means we identified a better ratio of all the objects that "
           "truly belonged to a class (for instance, we classified all "
@@ -212,13 +200,13 @@ for i in range(0, len(recall_score_knn)):
 
 print("8. Confusion Matrix")
 confusion_matrix_des_tree: np.ndarray = confusion_matrix(y_test, y_pred_des_tree)
-confusion_matrix_knn: np.ndarray = confusion_matrix(y_test, y_pred_knn)
+confusion_matrix_svm: np.ndarray = confusion_matrix(y_test, y_pred_svm)
 print(confusion_matrix_des_tree)
-print(confusion_matrix_knn)
-confusion_matrix_des_tee_str = \
+print(confusion_matrix_svm)
+confusion_matrix_des_tree_str = \
     confusion_matrix_des_tree.astype(int).astype(str)
-confusion_matrix_svm_knn = \
-    confusion_matrix_knn.astype(int).astype(str)
+confusion_matrix_svm_str = \
+    confusion_matrix_svm.astype(int).astype(str)
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 sns.heatmap(confusion_matrix_des_tree, annot=True, cmap='Blues', fmt='d',
             ax=axes[0], xticklabels=list(classes_labels.values()),
@@ -229,11 +217,11 @@ axes[0].set_title('Decision Tree Classifier Testing Confusion Matrix')
 axes[0].set_xlabel('Predicted')
 axes[0].set_ylabel('Actual')
 
-sns.heatmap(confusion_matrix_knn, annot=True, cmap='Blues', fmt='d',
+sns.heatmap(confusion_matrix_svm, annot=True, cmap='Blues', fmt='d',
             ax=axes[1], xticklabels=list(classes_labels.values()),
             yticklabels=list(classes_labels.values()),
             annot_kws={'color': 'black'}, )
-axes[1].set_title('KNN Testing Confusion Matrix')
+axes[1].set_title('SVM Testing Confusion Matrix')
 axes[1].set_xlabel('Predicted')
 axes[1].set_ylabel('Actual')
 plt.tight_layout()

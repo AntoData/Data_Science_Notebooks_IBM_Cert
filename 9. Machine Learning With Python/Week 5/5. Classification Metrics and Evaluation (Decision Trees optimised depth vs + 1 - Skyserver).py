@@ -6,7 +6,6 @@ from sklearn.metrics import accuracy_score, classification_report, \
     precision_score, recall_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 
 """
@@ -107,102 +106,110 @@ x_train, x_test, y_train, y_test = train_test_split(df_x_std, df_y,
                                                     random_state=4)
 
 """
-Decision Trees
+Decision Trees Optimised
 """
 # 9.1 We create a base Logistic model and then create a OneVSOne
 # classifier whose input is the Logistic model
 print("3a. Building the Decision Tree Classifier with best max depth "
       "which is 6")
-decision_tree_model: DecisionTreeClassifier = DecisionTreeClassifier(
+decision_tree_model_op: DecisionTreeClassifier = DecisionTreeClassifier(
     criterion="entropy", max_depth=6)
 
 # 10.1 We train the model using training variables
 print("3a.1 Training the model with training variables x and y")
-decision_tree_model.fit(x_train, y_train)
+decision_tree_model_op.fit(x_train, y_train)
 
 # 11.1 We use x_test to predict values
 print("3a.2 Predicting the labels of the test set of x")
-y_pred_des_tree: np.ndarray = decision_tree_model.predict(x_test)
+y_pred_des_tree_op: np.ndarray = decision_tree_model_op.predict(x_test)
 
-print("3b Building the K Nearest Neighbor object with best n_neighbors: 14")
-knn_model: KNeighborsClassifier = KNeighborsClassifier(n_neighbors=14)
+print("3b. Building the Decision Tree Classifier with not optimised max "
+      "depth 3")
+decision_tree_model_no: DecisionTreeClassifier = DecisionTreeClassifier(
+    criterion="entropy", max_depth=3)
 print("3b.1 Training the model with our training sets of x and y")
-knn_model.fit(x_train, y_train)
+decision_tree_model_no.fit(x_train, y_train)
 
 print("3b.2 Using the model to predict values in the test set")
-y_pred_knn: np.ndarray = knn_model.predict(x_test)
+y_pred_des_tree_no: np.ndarray = decision_tree_model_no.predict(x_test)
 
 print("4. Comparing accuracy scores")
-accuracy_score_des_tree: float = accuracy_score(y_test, y_pred_des_tree)
-accuracy_score_knn: float = accuracy_score(y_test, y_pred_knn)
-print("Accuracy level Decision Tree Classifier Model = {0}".format(
-    accuracy_score_des_tree))
-print("Accuracy level K-Nearest Neighbor Model = "
-      "{0}".format(accuracy_score_knn))
-if accuracy_score_des_tree > accuracy_score_knn:
-    print("Decision Tree Classifier model was more accurate in this occasion")
-elif accuracy_score_des_tree == accuracy_score_knn:
+accuracy_score_des_tree_op: float = accuracy_score(y_test, y_pred_des_tree_op)
+accuracy_score_des_tree_no: float = accuracy_score(y_test, y_pred_des_tree_no)
+print("Accuracy level Decision Tree Optimised Classifier Model = {0}".format(
+    accuracy_score_des_tree_op))
+print("Accuracy level Decision Tree Not Optimised Classifier Model = "
+      "{0}".format(accuracy_score_des_tree_no))
+if accuracy_score_des_tree_op > accuracy_score_des_tree_no:
+    print("Decision Tree Classifier Optimised model was more accurate "
+          "in this occasion")
+elif accuracy_score_des_tree_op == accuracy_score_des_tree_no:
     print("Both have the same level of accuracy")
 else:
-    print("K Nearest Neighbor model was more accurate in this occasion")
+    print("Decision Tree Classifier Not Optimised model was more "
+          "accurate in this occasion")
 
 print("5. Getting Classification Reports")
-classification_report_des_tree: str = classification_report(y_test,
-                                                            y_pred_des_tree)
-classification_report_knn: str = classification_report(y_test, y_pred_knn)
-print("Classification report Decision Tree Classifier")
-print(classification_report_des_tree)
-print("Classification report KNN")
-print(classification_report_knn)
+classification_report_des_tree_op: str = classification_report(
+    y_test, y_pred_des_tree_op)
+classification_report_des_tree_no: str = classification_report(
+    y_test, y_pred_des_tree_no)
+print("Classification report Decision Tree Optimised Classifier")
+print(classification_report_des_tree_op)
+print("Classification report Decision Tree Not Optimised Classifier")
+print(classification_report_des_tree_no)
 
 print("6. Comparing precision by class")
 # Setting index for the different classes
 classes_labels: {int: str} = {
     k: v for k, v in zip(range(0, len(np.unique(y_test))), np.unique(y_test))}
 print(classes_labels)
-precision_scores_des_tree: np.ndarray = \
-    precision_score(y_test, y_pred_des_tree, average=None)
-precision_scores_knn: np.ndarray = \
-    precision_score(y_test, y_pred_knn, average=None)
+precision_scores_des_tree_op: np.ndarray = \
+    precision_score(y_test, y_pred_des_tree_op, average=None)
+precision_scores_des_tree_no: np.ndarray = \
+    precision_score(y_test, y_pred_des_tree_no, average=None)
 print("6.1 Going class by class")
-for i in range(0, len(precision_scores_des_tree)):
+for i in range(0, len(precision_scores_des_tree_op)):
     print("Class = {0}".format(classes_labels[i]))
-    print("Decision Tree Classifier = {0}".format(
-        precision_scores_des_tree[i]))
-    print("KNN = {0}".format(precision_scores_knn[i]))
-    if precision_scores_des_tree[i] > precision_scores_knn[i]:
-        print("For class = {0} Decision Tree Classifier is more "
+    print("Decision Tree Optimised Classifier = {0}".format(
+        precision_scores_des_tree_op[i]))
+    print("Decision Tree Not Optimised Classifier = {0}".format(
+        precision_scores_des_tree_no[i]))
+    if precision_scores_des_tree_op[i] > precision_scores_des_tree_no[i]:
+        print("For class = {0} Decision Tree Optimised Classifier is more "
               "precise".format(classes_labels[i]))
-    elif precision_scores_des_tree[i] == precision_scores_knn[i]:
+    elif precision_scores_des_tree_op[i] == precision_scores_des_tree_no[i]:
         print("For class = {0} both are equally "
               "precise".format(classes_labels[i]))
     else:
-        print("For class = {0} KNN is more precise".format(classes_labels[i]))
+        print("For class = {0} Decision Tree Not Optimised Classifier is"
+              " more precise".format(classes_labels[i]))
     print("That means of all objects classified as {0} more of them "
           "belonged to that class (ratio of them was "
           "better)".format(classes_labels[i]))
     print("")
 
 print("7. Comparing Recall scores by class")
-recall_score_des_tree: np.ndarray = recall_score(
-    y_test, y_pred_des_tree, average=None)
-recall_score_knn: np.ndarray = recall_score(y_test, y_pred_knn, average=None)
+recall_score_des_tree_op: np.ndarray = recall_score(
+    y_test, y_pred_des_tree_op, average=None)
+recall_score_des_tree_no: np.ndarray = recall_score(
+    y_test, y_pred_des_tree_no, average=None)
 
-for i in range(0, len(recall_score_knn)):
+for i in range(0, len(recall_score_des_tree_no)):
     print("For class = {0}".format(classes_labels[i]))
-    print("Recall score for Decision Tree Classifier = {0}".format(
-        recall_score_des_tree[i]))
-    print("Recall score for KNN = {0}".format(
-        recall_score_knn[i]))
-    if recall_score_des_tree[i] > recall_score_knn[i]:
-        print("For class = {0} Decision Tree Classifier has better "
+    print("Recall score for Decision Tree Optimised Classifier = {0}".format(
+        recall_score_des_tree_op[i]))
+    print("Recall score for Decision Tree Not Optimised Classifier = "
+          "{0}".format(recall_score_des_tree_no[i]))
+    if recall_score_des_tree_op[i] > recall_score_des_tree_no[i]:
+        print("For class = {0} Decision Tree Optimised Classifier has better "
               "recall".format(classes_labels[i]))
-    elif recall_score_des_tree[i] == recall_score_knn[i]:
+    elif recall_score_des_tree_op[i] == recall_score_des_tree_no[i]:
         print("For class = {0} both have the same "
               "recall".format(classes_labels[i]))
     else:
-        print("For class = {0} KNN has better recall".format(
-            classes_labels[i]))
+        print("For class = {0}  Decision Tree Not Optimised Classifier"
+              " has better recall".format(classes_labels[i]))
     print("This means we identified a better ratio of all the objects that "
           "truly belonged to a class (for instance, we classified all "
           "the elements of a class as that class even if we "
@@ -211,29 +218,32 @@ for i in range(0, len(recall_score_knn)):
     print("")
 
 print("8. Confusion Matrix")
-confusion_matrix_des_tree: np.ndarray = confusion_matrix(y_test, y_pred_des_tree)
-confusion_matrix_knn: np.ndarray = confusion_matrix(y_test, y_pred_knn)
-print(confusion_matrix_des_tree)
-print(confusion_matrix_knn)
-confusion_matrix_des_tee_str = \
-    confusion_matrix_des_tree.astype(int).astype(str)
-confusion_matrix_svm_knn = \
-    confusion_matrix_knn.astype(int).astype(str)
+confusion_matrix_des_tree_op: np.ndarray = confusion_matrix(
+    y_test, y_pred_des_tree_op)
+confusion_matrix_des_tree_no: np.ndarray = confusion_matrix(
+    y_test, y_pred_des_tree_no)
+print(confusion_matrix_des_tree_op)
+print(confusion_matrix_des_tree_no)
+confusion_matrix_des_tree_op_str = \
+    confusion_matrix_des_tree_op.astype(int).astype(str)
+confusion_matrix_des_tree_no_str = \
+    confusion_matrix_des_tree_no.astype(int).astype(str)
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-sns.heatmap(confusion_matrix_des_tree, annot=True, cmap='Blues', fmt='d',
+sns.heatmap(confusion_matrix_des_tree_op, annot=True, cmap='Blues', fmt='d',
             ax=axes[0], xticklabels=list(classes_labels.values()),
             yticklabels=list(classes_labels.values()),
             annot_kws={'color': 'black'})
 
-axes[0].set_title('Decision Tree Classifier Testing Confusion Matrix')
+axes[0].set_title('Decision Tree Optimised Classifier Testing '
+                  'Confusion Matrix')
 axes[0].set_xlabel('Predicted')
 axes[0].set_ylabel('Actual')
 
-sns.heatmap(confusion_matrix_knn, annot=True, cmap='Blues', fmt='d',
+sns.heatmap(confusion_matrix_des_tree_no, annot=True, cmap='Blues', fmt='d',
             ax=axes[1], xticklabels=list(classes_labels.values()),
             yticklabels=list(classes_labels.values()),
             annot_kws={'color': 'black'}, )
-axes[1].set_title('KNN Testing Confusion Matrix')
+axes[1].set_title('Decision Tree Not Optimised Testing Confusion Matrix')
 axes[1].set_xlabel('Predicted')
 axes[1].set_ylabel('Actual')
 plt.tight_layout()
