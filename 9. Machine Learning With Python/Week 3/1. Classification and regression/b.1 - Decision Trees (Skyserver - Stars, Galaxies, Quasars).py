@@ -93,7 +93,7 @@ max_accuracy_score: float = 0.0
 best_max_depth: int = 0
 for i in range(4, 20):
     decision_tree_object_class: DecisionTreeClassifier = \
-        DecisionTreeClassifier(criterion="entropy", max_depth=10)
+        DecisionTreeClassifier(criterion="entropy", max_depth=i)
 
     # 10. Let's train the model using our training sets
     decision_tree_object_class.fit(x_train, y_train)
