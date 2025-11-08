@@ -172,7 +172,7 @@ x_test_scaled = scaler.transform(x_test.to_frame())
 
 print("3. Creating the LinearRegression object")
 # Now we create the Linear Model
-linear_model = LinearRegression()
+linear_model: LinearRegression = LinearRegression()
 
 # We train the model
 print("3.1 Now we train the model using train y and scaled train x")
@@ -223,8 +223,8 @@ plt.title('Greenhouse emissions (kt CO₂e) Prediction Residuals')
 plt.xlabel('kt CO₂e')
 plt.ylabel('Frequency')
 plt.show()
-print('Average error = ' + str(int(np.mean(residuals))))
-print('Standard deviation of error = ' + str(int(np.std(residuals))))
+print('Average error = ' + str(float(np.mean(residuals))))
+print('Standard deviation of error = ' + str(float(np.std(residuals))))
 
 # Create a DataFrame to make sorting easy
 residuals_df = pd.DataFrame({
@@ -237,8 +237,8 @@ residuals_df = residuals_df.sort_values(by='Actual')
 
 # Plot the residuals
 plt.scatter(residuals_df['Actual'], residuals_df['Residuals'],
-            marker='o', alpha=0.4,ec='k')
-plt.title('Green house emissions in kt CO₂e Prediciton Residuals ')
+            marker='o', alpha=0.4, ec='k')
+plt.title('Green house emissions in kt CO₂e Prediction Residuals ')
 plt.xlabel('Actual Values (Sorted)')
 plt.ylabel('Residuals')
 plt.grid(True)
