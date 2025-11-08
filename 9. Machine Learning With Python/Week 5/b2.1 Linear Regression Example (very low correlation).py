@@ -1,0 +1,239 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from scipy import stats
+from sklearn.metrics import mean_absolute_error, mean_squared_error, \
+    root_mean_squared_error, r2_score
+
+
+def keep_country_and_years_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cleans the columns in datasets downloaded from eurostat so it only
+    includes the column TIME (and renames it to country) and the columns
+    of years and return points and other characters from numeric columns
+
+    :param df: Dataset downloaded from eurostat
+    :type df: pd.DataFrame
+    :return: DataFrame that only contains the columns with the countries
+    and data per year
+    :rtype pd.DataFrame
+    """
+    # This array will contain the columns with numeric value, therefore
+    # years
+    column_year: [int] = []
+    # Now we go column by column and try to convert the title to int
+    for column in df.columns:
+        try:
+            year = int(column)
+            # If an exception is not triggered we added it to the array
+            column_year.append(year)
+        except ValueError:
+            # Otherwise, we just move on
+            pass
+
+    # Now we only keep the column TIME and the columns in the array
+    # column_year
+    df = df[["TIME"] + [str(x) for x in range(min(column_year),
+                                              max(column_year))]]
+    # We remove any possible . in the columns that contain numbers
+    df = df.astype(str).replace(r'\.', '', regex=True)
+    # If there are , that means we need to convert them to .
+    df = df.astype(str).replace(r'\,', '.', regex=True)
+    # We convert any column that contains numeric data in the year
+    # series to integer
+    try:
+        df[[str(x) for x in range(min(column_year), max(column_year))]] = df[
+            [str(x) for x in range(min(column_year), max(column_year))]]. \
+            astype("int")
+    except ValueError:
+        df[[str(x) for x in range(min(column_year), max(column_year))]] = df[
+            [str(x) for x in range(min(column_year), max(column_year))]]. \
+            astype("float")
+    # We fill in any NA value in the numeric data in the yearly series
+    # with the mean of those columns
+    df[[str(x) for x in range(min(column_year), max(column_year))]] = \
+        df[[str(x) for x in range(min(column_year),
+                                  max(column_year))]].fillna(
+            df[[str(x) for x in range(min(column_year),
+                                      max(column_year))]].mean())
+    # We rename column TIME to Country
+    df.rename(columns={"TIME": "Country"}, inplace=True)
+    return df
+
+
+
+"""
+1. DATA CLEANING
+"""
+# First we open the dataset
+print("1. Opening GDP in the EU dataset: ")
+df_gdp_eu: pd.DataFrame = pd.read_csv('GDP EU.xlsx - Sheet 1.csv')
+# The first row is empty so we remove it
+df_gdp_eu = df_gdp_eu.loc[1:]
+# We clean the data
+print("2. Preprocessing")
+print("2.1 Cleaning this dataset")
+df_gdp_eu = keep_country_and_years_columns(df_gdp_eu)
+print(df_gdp_eu)
+print(" ")
+
+# We open the second dataset
+print("2.2 Opening CO2 emissions in the EU dataset")
+co2_emissions: pd.DataFrame = \
+    pd.read_csv('Greenhouse gas emissions EU - Sheet 1.csv')
+# We clean data
+print("2.3 We clean this dataset")
+co2_emissions = keep_country_and_years_columns(co2_emissions)
+print(co2_emissions)
+print("")
+
+# Now we need to keep only the subsets of years and countries
+print("2.4 Working out common columns and rows")
+common_columns: [str] = \
+    list(set(df_gdp_eu.columns).intersection(set(co2_emissions)))
+print("Common columns: {0}".format(common_columns))
+common_countries: [str] = list(set(df_gdp_eu["Country"]).intersection(
+    set(co2_emissions["Country"])))
+print("Common countries: {0}".format(common_countries))
+print("")
+
+# Now we filter the datasets to get only common countries and year
+print("2.5 Leaving only common columns and rows in datasets")
+df_gdp_eu = df_gdp_eu[common_columns]
+df_gdp_eu = df_gdp_eu[df_gdp_eu["Country"].isin(common_countries)]
+df_gdp_eu.set_index("Country", inplace=True)
+print("GDP in the EU completely filtered and cleaned")
+print(df_gdp_eu)
+co2_emissions = co2_emissions[common_columns]
+co2_emissions = co2_emissions[co2_emissions["Country"].isin(common_countries)]
+co2_emissions.set_index("Country", inplace=True)
+print("CO2 emission in the EU completely filtered and cleaned")
+print(co2_emissions)
+print(" ")
+
+# We sort both by column Country
+print("2.6 Sorting both datasets by country alphabetically")
+df_gdp_eu.sort_index(inplace=True)
+df_gdp_eu_t: pd.DataFrame = df_gdp_eu.transpose()
+df_gdp_eu_t = df_gdp_eu_t.sort_index(key=lambda s: s.astype(int))
+var_x: np.ndarray = df_gdp_eu_t.to_numpy().flatten()
+print("GDP in the EU after being sorted: ")
+print(df_gdp_eu)
+co2_emissions.sort_index(inplace=True)
+co2_emissions_t: pd.DataFrame = co2_emissions.transpose()
+co2_emissions_t = co2_emissions_t.sort_index(key=lambda s: s.astype(int))
+var_y: np.ndarray = co2_emissions_t.to_numpy().flatten()
+print(var_x.shape)
+print(var_y.shape)
+
+"""
+2. MODEL: LINEAR REGRESSION
+"""
+# We first divide into training and testing sets
+print("2.7 We will divide the dataset in train and test sets")
+x_train, x_test, y_train, y_test = train_test_split(var_x,
+                                                    var_y)
+
+print("2.8 Getting Pearson coefficient and p_value")
+# We display the pearson correlation and p-value now
+pearson_coef, p_value = stats.pearsonr(x_train, y_train)
+print("Correlation Coef = {0}".format(pearson_coef))
+print("p-value = {0}".format(p_value))
+if abs(pearson_coef) < 0.8:
+    print("Low correlation")
+else:
+    print("High correlation")
+if p_value < 0.0001:
+    print("Strong certainty")
+else:
+    print("Low certainty")
+
+# Now we apply the Standard Scaler
+print("2.9 - We fit the StandardScaler to x_train")
+scaler: StandardScaler = StandardScaler()
+x_train_scaled = scaler.fit_transform(x_train.reshape(-1, 1))
+x_test_scaled = scaler.transform(x_test.reshape(-1, 1))
+
+print("3. Creating the LinearRegression object")
+# Now we create the Linear Model
+linear_model = LinearRegression()
+
+# We train the model
+print("3.1 Now we train the model using train y and scaled train x")
+linear_model.fit(x_train_scaled, y_train)
+
+print("Intercept: b0 = {0}".format(linear_model.intercept_))
+print("Coef: b1 = {0}".format(linear_model.coef_))
+
+print("3.2 We predict y for our scale test set of x")
+y_pred = linear_model.predict(x_test_scaled)
+
+"""
+5. We work out now mean squared error (MSE) and r2 score (r^2)
+"""
+print("4. We calculate MAE, MSE, RMSE and R^2 score")
+print("Getting MAE")
+mae: float = mean_absolute_error(y_test, y_pred)
+print("Mean Absolute Error: MAE = {0} kt CO₂e".format(mae))
+print("Getting MSE")
+mse: float = mean_squared_error(y_test, y_pred)
+print("Mean Squared Error: MSE = {0}".format(mse))
+print("Getting RMSE")
+rmse: float = root_mean_squared_error(y_test, y_pred)
+print("Root Mean Squared Error: RMSE = {0} kt CO₂e".format(rmse))
+r2_sc: float = r2_score(y_test, y_pred)
+print("R^2 Score (R2) = {0}".format(r2_sc))
+if r2_sc > 0.8:
+    print("Our predictions are accurate")
+else:
+    print("Error is too high")
+
+"""
+6. Let's represent our regression model our the points
+"""
+print("5. Scatter plot, regression vs original points")
+plt.scatter(y_test, y_pred, alpha=0.5, color="blue")
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()],
+         'k--', lw=2)
+plt.xlabel("Actual Values")
+plt.ylabel("Predicted Values")
+plt.title("kt CO₂e Greenhouse emissions by GDP (Mill €): Actual vs "
+          "Predicted (Linear Regression)")
+plt.show()
+
+residuals = (y_test - y_pred)
+plt.hist(residuals, bins=5, color='lightblue', edgecolor='black')
+plt.title('Greenhouse emissions (kt CO₂e) Prediction Residuals')
+plt.xlabel('kt CO₂e')
+plt.ylabel('Frequency')
+plt.show()
+print('Average error = ' + str(int(np.mean(residuals))))
+print('Standard deviation of error = ' + str(int(np.std(residuals))))
+
+# Create a DataFrame to make sorting easy
+residuals_df = pd.DataFrame({
+    'Actual': y_test,
+    'Residuals': residuals
+})
+
+# Sort the DataFrame by the actual target values
+residuals_df = residuals_df.sort_values(by='Actual')
+
+# Plot the residuals
+plt.scatter(residuals_df['Actual'], residuals_df['Residuals'],
+            marker='o', alpha=0.4,ec='k')
+plt.title('Green house emissions in kt CO₂e Prediciton Residuals '
+          'Ordered')
+plt.xlabel('Actual Values (Sorted)')
+plt.ylabel('Residuals')
+plt.grid(True)
+plt.show()
+
+"""
+Our model performs pretty badly. Look at R2 score:
+This time is positive, but still is way too low for us to consider this
+any good
+"""
