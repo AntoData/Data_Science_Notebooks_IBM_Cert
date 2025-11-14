@@ -280,24 +280,24 @@ However, inertia always decreases as you add clusters, so you look for
 the “elbow point” — where adding more clusters doesn't give a big 
 improvement.
 In this case, we can see the biggest improvement happens between 
-k ≈ 5–6, after that the improvement is not that big
+k ≈ 3–6, after that the improvement is not that big
 
 Higher silhouette = better cluster separation and cohesion.
 It typically peaks near the “best” number of clusters.
-In this case, we see the best values are around k = 7–8 (≈ 0.39)
+In this case, we see the best values are around k = 7, 9, 13, 16, 18
+ (≈ 0.39)
 But these values mean there is not a strong structure
 
 Lower DBI = better clustering (clusters are compact and well-separated).
-DBI decreases sharply from k=2 to around k=8–10, then levels off 
-around 0.9–1.0 after k≈10. Best values are between 10-12
+DBI decreases sharply with k=9, k=10-11, k=16, k=18
 
 As we can see, these 3 measurements give different results, in our 
-case I would say are 7, 10 and 17
+case I would say are 9, 13 and 16
 """
 
-print("4. It looks like best Ks are 7, 10 and 17 is the right one for k,"
+print("4. It looks like best Ks are 9, 13 and 16 is the right one for k,"
       " we will create maps with those values")
-k_range = [k for k in [7, 10, 17]]
+k_range = [k for k in [9, 13, 16]]
 for k in k_range:
     print("5. Building the model for k={0}".format(k))
     kmeans: KMeans = KMeans(init="k-means++", n_clusters=k, n_init=12)
@@ -313,7 +313,7 @@ for k in k_range:
     print("8. Creating the folium map for k={0}".format(k))
     # Creating random colours for each class
     colors: [str] = ['#{0}'.format(str(hex(rd.randint(0, 4294967296))).
-                            replace("0x", "")) for _ in range(
+                                   replace("0x", "")) for _ in range(
         kmeans.n_clusters)]
 
     # Create base Folium map centered at the average location
@@ -388,3 +388,4 @@ for k in k_range:
                            title_suffix=' k-Means Clustering')
 
     plot_voronoi_2d(df, labels, centroids, std_sc)
+    df.drop(columns=["label"])
