@@ -162,7 +162,7 @@ def plot_voronoi_2d(var_x: pd.DataFrame, var_y: np.ndarray,
     # 1️⃣ Descale centroids back to original units
     descaled_centroids_: np.ndarray = scaler.inverse_transform(centroids_)
 
-    all_scaled_cols = [c for c in df.columns if c.endswith('_scaled')]
+    all_scaled_cols = [c for c in var_x.columns if c.endswith('_scaled')]
     x_index: int = all_scaled_cols.index("x_scaled")
     y_index: int = all_scaled_cols.index("y_scaled")
 

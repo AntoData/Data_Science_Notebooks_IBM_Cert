@@ -175,7 +175,7 @@ def plot_voronoi_2d(var_x: pd.DataFrame, var_y: np.ndarray,
     vor_centroids: np.ndarray = np.unique(centroids_, axis=0)
 
     print("Creating the voronoi object for the plot")
-    voronoi_var: Voronoi = Voronoi(centroids[:, [1, 0]])
+    voronoi_var: Voronoi = Voronoi(vor_centroids[:, [1, 0]])
 
     print("Creating the plot")
     fig, ax = plt.subplots(figsize=(14, 10))
