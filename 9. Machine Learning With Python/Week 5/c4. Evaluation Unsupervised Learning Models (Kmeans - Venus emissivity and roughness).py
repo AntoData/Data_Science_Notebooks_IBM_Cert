@@ -228,10 +228,9 @@ def plot_inertia_sil_score_db_score(k_values_: [int], inertias_: [float],
 def plot_voronoi_2d(var_x: np.ndarray, var_y: np.ndarray,
                     centroids_: np.ndarray) -> None:
     """
-    Given a variable x that contains columns x and y in metres
-    with corresponding classification labels and an array of centroids
-    of those clusters, we transform them to a Euclidean space if needed
-     and plot the points and their voronoi 2D diagrams
+    Given a variable x that contains columns x and y with corresponding
+     classification labels and an array of centroids
+    of those clusters we plot the points and their voronoi 2D diagrams
 
     :param var_x: Variable X of the model
     :type var_x: np.ndarray
