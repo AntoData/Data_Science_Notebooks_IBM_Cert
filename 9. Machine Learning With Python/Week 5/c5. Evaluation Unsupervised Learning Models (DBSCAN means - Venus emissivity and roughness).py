@@ -194,7 +194,7 @@ def plot_inertia_sil_score_db_score(k_values_: [int],
     In the first row it displays the number of clusters and the number
     of clusters removing the noise cluster against k
     The bottom row displays the avg silhouette scores and
-    Davies Boulding indexes across k
+    Davies Bouldin indexes across k
     In all cases k is used in: eps = eps_m0 * k
 
     :param k_values_: Array with the different k values to be used in
@@ -210,7 +210,7 @@ def plot_inertia_sil_score_db_score(k_values_: [int],
     :param silhouette_scores_: Avg Silhouette scores for the values of k
      in k_values
     :type silhouette_scores_: [float]
-    :param davies_bouldin_indexes_: Davies Boulding indexes for the
+    :param davies_bouldin_indexes_: Davies Bouldin indexes for the
     values of k in k_values
     :type davies_bouldin_indexes_: [float]
     :return: None
@@ -524,7 +524,7 @@ eps0_m: float = np.percentile(k_dist[pos], percentile_k)
 
 print("6.2 We measure our model against a range of values for parameter "
       "k: eps = eps_m0 * k and we will display Silhouette score and "
-      "Davies Boulding index but using a sample of our pixels")
+      "Davies Bouldin index but using a sample of our pixels")
 k_range: [int] = [k / 100 for k in range(55, 500, 35)]
 number_clusters_array: [float] = []
 number_clusters_array_no_noise: [float] = []
@@ -795,7 +795,7 @@ print(silhouette_score_inter)
 plot_silhouette_scores(silhouette_avg_, sample_silhouette_values_,
                        dbscan_mod.labels_,
                        silhouette_score_inter,
-                       title_suffix=' k-Means Clustering')
+                       title_suffix=' DBSCAN Clustering')
 
 # Optional: ignore noise if you kept DBSCAN's -1 label
 mask = labels_sorted != -1

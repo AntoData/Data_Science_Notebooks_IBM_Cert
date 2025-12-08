@@ -181,7 +181,7 @@ def plot_inertia_sil_score_db_score(k_values_: [int], inertias_: [float],
                                     davies_bouldin_indexes_: [float]) -> None:
     """
     Plots in 3 different graphs the inertia, avg silhouette scores and
-    Davies Boulding indexes across K (number of clusters in Kmeans)
+    Davies Bouldin indexes across K (number of clusters in Kmeans)
 
     :param k_values_: Array with the different number of clusters that
     were used in the experiment
@@ -192,7 +192,7 @@ def plot_inertia_sil_score_db_score(k_values_: [int], inertias_: [float],
     :param silhouette_scores_: Avg Silhouette scores for the K values in
     k_values in a Kmeans model
     :type silhouette_scores_: [float]
-    :param davies_bouldin_indexes_: Davies Boulding indexes for the K
+    :param davies_bouldin_indexes_: Davies Bouldin indexes for the K
     values in k_values in a Kmeans model
     :type davies_bouldin_indexes_: [float]
     :return: None
@@ -494,7 +494,7 @@ plt.grid(True)
 plt.show()
 
 print("6.4 We repeat with a higher range and add Silhouette score and "
-      "Davies Boulding index but with a sample of our pixels")
+      "Davies Bouldin index but with a sample of our pixels")
 k_range: [int] = [k for k in range(2, 21)]
 inertia: [float] = []
 silhouette_scores: [float] = []

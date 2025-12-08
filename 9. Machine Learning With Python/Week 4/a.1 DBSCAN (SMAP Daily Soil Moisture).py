@@ -90,6 +90,7 @@ for scale in k_range:
     labels = dbscan_mod.labels_
     print("7.1 Adding the classification labels to the dataframe")
     df["label"] = labels
+    print("Number of clusters = {0}".format(len(np.unique(labels))))
     print(df)
     print("")
     print("8. Creating the folium map for k={0}".format(scale))
