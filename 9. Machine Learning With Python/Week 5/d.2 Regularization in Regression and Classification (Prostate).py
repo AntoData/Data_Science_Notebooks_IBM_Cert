@@ -1,31 +1,37 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, mean_squared_error, \
     explained_variance_score, mean_absolute_error
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import matplotlib.pyplot as plt
 
 """
-SOURCE: https://jse.amstat.org/v19n3/decock/AmesHousing.xls
-Data set contains information from the Ames Assessor’s Office used in 
-computing assessed values for individual residential properties sold in 
-Ames, IA from 2006 to 2010.
+SOURCE: "https://web.stanford.edu/~hastie/ElemStatLearn/datasets/
+prostate.data"
 
-More details on data: 
-https://jse.amstat.org/v19n3/decock/DataDocumentation.txt
+Stamey et al. (1989)
+“Prostate specific antigen in the diagnosis and treatment of 
+adenocarcinoma of the prostate.”
+Journal of Urology.
 
-With this dataset we will create a regression problem using all features
-to predict the price of a house so:
+VARIABLE X
+Variables	Description
+lcavol	    log cancer volume
+lweight	    log prostate weight
+age	        patient age
+lbph	    log benign prostatic hyperplasia amount
+svi	        seminal vesicle invasion (0/1)
+lcp	        log capsular penetration
+gleason	    Gleason score
+pgg45	    % Gleason scores 4 or 5
 
-Variable x: Independent variables
-All columns except SalePrice
+VARIABLE Y
+Variable	Description
+lpsa	    log PSA — target variable
 
-Variable y: Dependent variable
-Column SalePrice
-
-We will split the dataset in training and testing sets
+We will split the dataset in training and testing sets (already preset 
+by dataset)
 
 We will first create 3 models:
 - Linear Regression
@@ -43,8 +49,6 @@ so we can compare performances
 
 We will display the coefficients of Ridge and Lasso model compared to
 Linear model's coefficients
-Later we will apply cross validation to these models to get R^2 score
-and compare again
 
 Finally, we will filter feature using Lasso. Basically, we will remove
 any feature whose coefficient is 0 in the Lasso model and repeat 
@@ -181,97 +185,173 @@ def create_plot_compare_coefficients(models_coefficients: dict,
     :return: None
     """
 
-    x_axis: np.ndarray = np.arange(len(list(models_coefficients.values())[0]))
-    x_labels: np.ndarray = np.arange(min(x_axis), max(x_axis), 10)
-    n_models: int = len(models_coefficients)
-    bar_width: float = 0.8 / n_models
-    fig_, axes_ = plt.subplots(2, 1, figsize=(18, 10), sharey=True)
-    i: int = 0
+    print("create_plot_compare_coefficients: ç"
+          "Normalising coefficients to 1D arrays")
+    coeffs_1d: dict[str, np.ndarray] = {}
     for label, coefficients in models_coefficients.items():
-        offset = (i - n_models / 2) * bar_width + bar_width / 2
-        axes_[0].bar(x_axis - offset, coefficients, width=0.25, label=label,
+        coef_1d = np.asarray(coefficients).ravel()
+        coeffs_1d[label] = coef_1d
+        print(f" - {label} coefficients shape: "
+              f"{np.asarray(coefficients).shape} -> {coef_1d.shape}")
+
+    if "Linear" not in coeffs_1d:
+        raise ValueError("create_plot_compare_coefficients: "
+                         "models_coefficients must include a 'Linear' key")
+
+    print("create_plot_compare_coefficients: "
+          "Building x-axis based on number of FEATURES")
+    n_features: int = coeffs_1d["Linear"].shape[0]
+    x_axis: np.ndarray = np.arange(n_features)
+
+    # Make readable ticks for both small and large n_features
+    step: int = 10 if n_features >= 100 else max(1, n_features // 10)
+    x_labels: np.ndarray = np.arange(0, n_features, step)
+
+    # Safety check: all coefficient vectors must match feature length
+    for label, coef in coeffs_1d.items():
+        if coef.shape[0] != n_features:
+            raise ValueError(
+                f"create_plot_compare_coefficients: '{label}' has "
+                f"{coef.shape[0]} coefficients "
+                f"but Linear has {n_features}. ("
+                f"Your models were not trained on identical X columns.)"
+            )
+
+    n_models: int = len(coeffs_1d)
+    bar_width: float = 0.8 / n_models
+
+    fig_, axes_ = plt.subplots(2, 1, figsize=(18, 10), sharey=True)
+
+    print("create_plot_compare_coefficients: Plotting coefficients")
+    i: int = 0
+    for label, coef in coeffs_1d.items():
+        offset: float = (i - n_models / 2) * bar_width + bar_width / 2
+        axes_[0].bar(x_axis - offset, coef, width=bar_width, label=label,
                      color=colours[i])
         i += 1
+
     axes_[0].set_title("Comparison of Model Coefficients")
-    axes_[0].set_xlabel("Feature Index", )
-    axes_[0].set_ylabel("Coefficient Value", )
+    axes_[0].set_xlabel("Feature Index")
+    axes_[0].set_ylabel("Coefficient Value")
     axes_[0].set_xticks(x_labels)
     axes_[0].legend()
 
+    print("create_plot_compare_coefficients: Plotting residuals vs Linear")
+    linear_coef = coeffs_1d["Linear"]
     j: int = 0
-    for label, coefficients in models_coefficients.items():
+    for label, coef in coeffs_1d.items():
         if label == "Linear":
             continue
-        elif label == "Lasso":
-            axes_[1].plot(x_axis, models_coefficients["Linear"] - coefficients,
-                          label=label,
-                          color=colours[j])
-            j += 1
-            continue
-        axes_[1].bar(x_axis, models_coefficients["Linear"] - coefficients,
-                     width=0.25, label=label, color=colours[j])
+        residual = linear_coef - coef
+        if label == "Lasso":
+            axes_[1].plot(x_axis, residual, label=label, color=colours[j])
+        else:
+            axes_[1].bar(x_axis, residual, width=bar_width, label=label,
+                         color=colours[j])
         j += 1
 
-    axes_[1].set_xlabel('Feature Index')
-    axes_[1].set_ylabel('Coefficient Value')
-    axes_[1].set_title('Comparison of Model Coefficient Residuals')
+    axes_[1].set_xlabel("Feature Index")
+    axes_[1].set_ylabel("Coefficient Value")
+    axes_[1].set_title("Comparison of Model Coefficient Residuals")
     axes_[1].set_xticks(x_labels)
     axes_[1].legend()
+
     plt.show()
 
 
 print("1. Let's open the file")
-df_ames_housing: pd.DataFrame = pd.read_excel('AmesHousing.xls')
+# Source of the dataset
+url: str = "https://hastie.su.domains/ElemStatLearn/datasets/prostate.data"
+df_prostate: pd.DataFrame = pd.read_csv(url, sep="\t")
+df_prostate.drop(inplace=True, columns=["Unnamed: 0"])
 print("1.1 Let's check its content")
-print(df_ames_housing.head())
+print(df_prostate.head())
 
 print("2. Data preprocessing")
 print("2.1 Turning all categorical features into numeric ones using"
       " get_dummies")
-df_ames_housing_encoded: pd.DataFrame = pd.get_dummies(df_ames_housing,
-                                                       drop_first=True)
+df_prostate_encoded: pd.DataFrame = pd.get_dummies(df_prostate,
+                                                   drop_first=True)
 print("2.2 Recheck now columns, types and data")
-print(df_ames_housing_encoded.columns)
-print(df_ames_housing_encoded.head())
-print(df_ames_housing_encoded.dtypes)
+print(df_prostate_encoded.columns)
+print(df_prostate_encoded.head())
+print(df_prostate_encoded.dtypes)
 
-print("2.3 Getting only numeric features to apply Standard Scaler later")
-df_ames_housing_numeric: pd.Index = \
-    df_ames_housing_encoded.select_dtypes(include=['int64', 'float64']).columns
-print(df_ames_housing_numeric)
-print("2.4 Getting non-numeric features, in this case all boolean features")
-df_ames_housing_non_numeric: pd.Index = df_ames_housing_encoded. \
+print("2.4 Dropping NA")
+df_prostate_encoded.dropna(inplace=True)
+
+print("2.5 Getting training and testing sets")
+df_x_pre: pd.DataFrame = df_prostate_encoded.drop(columns='lpsa')
+df_y_pre: pd.DataFrame = df_prostate_encoded[['lpsa', 'train_T']]
+x_train_pre: pd.DataFrame = df_x_pre[df_x_pre["train_T"]].drop(
+    columns=["train_T"])
+x_test_pre: pd.DataFrame = df_x_pre[~df_x_pre["train_T"]].drop(
+    columns=["train_T"])
+y_train_pre: pd.DataFrame = df_y_pre[df_y_pre["train_T"]]['lpsa'].drop(
+    columns=["train_T"])
+y_test_pre: pd.DataFrame = df_y_pre[~df_y_pre["train_T"]]['lpsa'].drop(
+    columns=["train_T"])
+
+print("2.6 Getting only numeric features of train set to "
+      "apply Standard Scaler later")
+x_train_pre_numeric_columns: pd.Index = \
+    x_train_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_train_pre_numeric_columns)
+print("2.7 Getting non-numeric features, in this case all boolean features")
+x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
-df_ames_housing_non_numeric: pd.DataFrame = df_ames_housing_encoded[
-    df_ames_housing_non_numeric]
+df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_non_numeric_cols]
+df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_numeric_columns]
 print("")
 
-print("2.5 Applying standard scaler to numeric features")
+print("2.8 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
-std_sclr.fit(df_ames_housing_encoded[df_ames_housing_numeric])
-numeric_scaled_array: np.ndarray = std_sclr.transform(
-    df_ames_housing_encoded[df_ames_housing_numeric])
+std_sclr.fit(df_x_train_pre_numeric)
+x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("2.6 Binding non numeric features with scaled numeric features again")
-df_numeric_scaled: pd.DataFrame = pd.DataFrame(
-    numeric_scaled_array,
-    columns=df_ames_housing_numeric,
-    index=df_ames_housing_encoded[df_ames_housing_numeric].index
+print("2.9 Binding non numeric features with scaled numeric features again")
+df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_train_numeric_scaled,
+    columns=x_train_pre_numeric_columns,
+    index=x_train_pre[x_train_pre_numeric_columns].index
 )
-df_ames_housing_preprocessed = pd.concat([df_numeric_scaled,
-                                          df_ames_housing_non_numeric], axis=1)
-print(df_ames_housing_preprocessed)
-df_ames_housing_preprocessed.dropna(inplace=True)
 
-print("2.7 Getting variables x and y")
-df_x: pd.DataFrame = df_ames_housing_preprocessed.drop(columns='SalePrice')
-df_y: pd.Series = df_ames_housing_preprocessed['SalePrice']
-print(df_x)
-print(df_y)
+df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
+                                             df_x_train_pre_non_numeric],
+                                            axis=1)
+print("2.10 Getting only numeric features of test set to "
+      "apply Standard Scaler later")
+x_test_pre_numeric_columns: pd.Index = \
+    x_test_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_test_pre_numeric_columns)
+print("2.11 Getting non-numeric features, in this case all boolean features")
+x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
+    select_dtypes(exclude=["int64", "float64"]).columns
+df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_non_numeric_cols]
+df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_numeric_columns]
 
-print("2.8 Splitting variables x and y into training and testing sets")
-x_train, x_test, y_train, y_test = train_test_split(df_x, df_y, test_size=0.6,
-                                                    random_state=42)
+print("2.12 Applying Standard scale already trained for train set")
+x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
+
+print("2.13 Binding non numeric features with scaled numeric features again")
+df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_test_numeric_scaled,
+    columns=x_test_pre_numeric_columns,
+    index=x_test_pre[x_test_pre_numeric_columns].index
+)
+
+df_x_test_scaled: pd.DataFrame = pd.concat([df_x_test_numeric_scaled,
+                                            df_x_test_pre_non_numeric],
+                                           axis=1)
+
+x_train: pd.DataFrame = df_x_train_scaled
+x_test: pd.DataFrame = df_x_test_scaled
+y_train: pd.DataFrame = y_train_pre
+y_test: pd.DataFrame = y_test_pre
 
 print("3. Training our models")
 print("Linear Regression")
@@ -287,16 +367,16 @@ y_pred_ridge: np.ndarray = lm_rid.predict(x_test)
 regression_results(y_test, y_pred_ridge, "Ridge")
 
 print("Lasso Regression")
-lm_lasso: Lasso = Lasso(alpha=0.0015)
+lm_lasso: Lasso = Lasso(alpha=0.01, max_iter=10000)
 lm_lasso.fit(x_train, y_train)
 y_pred_lasso: np.ndarray = lm_lasso.predict(x_test)
 regression_results(y_test, y_pred_lasso, "Lasso")
 
 print("4. Plotting predictions vs actual values")
-y_test_plot = y_test.reset_index(drop=True)
-y_pred_linear_series: pd.Series = pd.Series(y_pred_linear)
-y_pred_ridge_series: pd.Series = pd.Series(y_pred_ridge)
-y_pred_lasso_series: pd.Series = pd.Series(y_pred_lasso)
+y_test_plot: pd.Series = y_test.reset_index(drop=True)
+y_pred_linear_series: pd.Series = pd.Series(y_pred_linear.ravel())
+y_pred_ridge_series: pd.Series = pd.Series(y_pred_ridge.ravel())
+y_pred_lasso_series: pd.Series = pd.Series(y_pred_lasso.ravel())
 fig, axes = plt.subplots(2, 3, figsize=(18, 10), sharey=True)
 create_plot_scatter_actual_vs_predicted(axes, 0, 0, y_test_plot,
                                         y_pred_linear_series,
@@ -318,32 +398,13 @@ create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot,
                                      "Lasso", "Lasso vs Actual", "red")
 plt.show()
 
-print("4. Cross validation: Getting R^2 scores")
-lin_model_all: LinearRegression = LinearRegression()
-scores_lin: np.ndarray = cross_val_score(lin_model_all, df_x, df_y, cv=5)
-print("Linear Scores")
-print(scores_lin)
-print(np.mean(scores_lin))
-
-ridge_all: Ridge = Ridge(alpha=10)
-scores_ridge: np.ndarray = cross_val_score(ridge_all, df_x, df_y, cv=5)
-print("Ridge Scores")
-print(scores_ridge)
-print(np.mean(scores_ridge))
-
-lasso_all: Lasso = Lasso(alpha=0.0015)
-scores_lasso: np.ndarray = cross_val_score(lasso_all, df_x, df_y, cv=5)
-print("Lasso Scores")
-print(scores_lasso)
-print(np.mean(scores_lasso))
-
-print("5. Post-processing")
-print("5.1 Getting model's coefficients")
+print("4. Post-processing")
+print("4.1 Getting model's coefficients")
 linear_coefficients: np.ndarray = lm.coef_
 ridge_coefficients: np.ndarray = lm_rid.coef_
 lasso_coefficients: np.ndarray = lm_lasso.coef_
 
-print("5.2 Comparing Lasso and Ridge coefficients to Linear")
+print("4.2 Comparing Lasso and Ridge coefficients to Linear")
 models_coefficients_: dict = {"Linear": linear_coefficients,
                               "Ridge": ridge_coefficients,
                               "Lasso": lasso_coefficients}
@@ -351,27 +412,98 @@ colours_: [str] = ["red", "blue", "green"]
 
 create_plot_compare_coefficients(models_coefficients_, colours_)
 
-print("5.3 Applying Lasso reduction, removing every feature that is 0 "
+print("4.3 Applying Lasso reduction, removing every feature that is 0 "
       "in Lasso's coefficients in the other models")
 df_linear_coef: pd.DataFrame = pd.DataFrame(
-    {"coefficients": linear_coefficients})
+    {"coefficients": linear_coefficients.ravel()})
 df_ridge_coef: pd.DataFrame = pd.DataFrame(
-    {"coefficients": ridge_coefficients})
+    {"coefficients": ridge_coefficients.ravel()})
 df_lasso_coef: pd.DataFrame = pd.DataFrame(
-    {"coefficients": lasso_coefficients})
+    {"coefficients": lasso_coefficients.ravel()})
 
 # To filter by Lasso, a typical strategy is to only keep the features
 # whose coefficients are not 0.
 # In this case, we keep the indexes of columns whose coefficient is not
 # 0
-ind_selected_features: [int] = \
-    df_lasso_coef[df_lasso_coef["coefficients"] != 0].index
-# We use the indexes to keep only those columns using iloc
-df_filtered_data: pd.DataFrame = df_x.iloc[:, ind_selected_features]
+col_selected_features = x_train.columns[
+    df_lasso_coef["coefficients"].to_numpy() != 0]
+df_filtered_data = df_prostate_encoded[col_selected_features]
 
-print("5.4 Diving the newly filtered data in training and testing sets")
-x_train_sel, x_test_sel, y_train_sel, y_test_sel = train_test_split(
-    df_filtered_data, df_y, test_size=0.6, random_state=42)
+print("5. Post processing data again")
+print("5.1 Getting training and testing sets")
+d = df_prostate_encoded[["train_T"]]
+df_x_pre: pd.DataFrame = pd.concat([df_filtered_data,
+                                    df_prostate_encoded[["train_T"]]], axis=1)
+df_y_pre: pd.DataFrame = df_prostate_encoded[['lpsa', 'train_T']]
+x_train_pre: pd.DataFrame = df_x_pre[df_x_pre["train_T"]].drop(
+    columns=["train_T"])
+x_test_pre: pd.DataFrame = df_x_pre[~df_x_pre["train_T"]].drop(
+    columns=["train_T"])
+y_train_pre: pd.DataFrame = df_y_pre[df_y_pre["train_T"]]['lpsa'].drop(
+    columns=["train_T"])
+y_test_pre: pd.DataFrame = df_y_pre[~df_y_pre["train_T"]]['lpsa'].drop(
+    columns=["train_T"])
+
+print("5.2 Getting only numeric features of train set to "
+      "apply Standard Scaler later")
+x_train_pre_numeric_columns: pd.Index = \
+    x_train_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_train_pre_numeric_columns)
+print("5.3 Getting non-numeric features, in this case all boolean features")
+x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
+    select_dtypes(exclude=["int64", "float64"]).columns
+df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_non_numeric_cols]
+df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_numeric_columns]
+print("")
+
+print("5.4 Applying standard scaler to numeric features in train set")
+std_sclr: StandardScaler = StandardScaler()
+std_sclr.fit(df_x_train_pre_numeric)
+x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
+
+print("5.5 Binding non numeric features with scaled numeric features again")
+df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_train_numeric_scaled,
+    columns=x_train_pre_numeric_columns,
+    index=x_train_pre[x_train_pre_numeric_columns].index
+)
+
+df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
+                                             df_x_train_pre_non_numeric],
+                                            axis=1)
+print("5.6 Getting only numeric features of test set to "
+      "apply Standard Scaler later")
+x_test_pre_numeric_columns: pd.Index = \
+    x_test_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_test_pre_numeric_columns)
+print("5.7 Getting non-numeric features, in this case all boolean features")
+x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
+    select_dtypes(exclude=["int64", "float64"]).columns
+df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_non_numeric_cols]
+df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_numeric_columns]
+
+print("5.8 Applying Standard scale already trained for train set")
+x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
+
+print("5.9 Binding non numeric features with scaled numeric features again")
+df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_test_numeric_scaled,
+    columns=x_test_pre_numeric_columns,
+    index=x_test_pre[x_test_pre_numeric_columns].index
+)
+
+df_x_test_scaled: pd.DataFrame = pd.concat([df_x_test_numeric_scaled,
+                                            df_x_test_pre_non_numeric],
+                                           axis=1)
+
+x_train_sel: pd.DataFrame = df_x_train_scaled
+x_test_sel: pd.DataFrame = df_x_test_scaled
+y_train_sel: pd.DataFrame = y_train_pre
+y_test_sel: pd.DataFrame = y_test_pre
 
 print("6. Training the models with the filtered data")
 print("Linear Regression (Filtered coefficients)")
@@ -419,48 +551,3 @@ create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot_sel,
                                      y_pred_lasso_sel_series,
                                      "Lasso", "Lasso vs Actual", "red")
 plt.show()
-
-print("8. Cross validation: Getting R^2 score after Lasso optimisation")
-lin_model_all_sel: LinearRegression = LinearRegression()
-scores_lin_sel: np.ndarray = cross_val_score(
-    lin_model_all_sel, df_filtered_data, df_y, cv=5)
-print("Linear Scores")
-print(scores_lin_sel)
-print(np.mean(scores_lin_sel))
-
-ridge_all_sel: Ridge = Ridge(alpha=10)
-scores_ridge_sel: np.ndarray = cross_val_score(ridge_all_sel,
-                                               df_filtered_data, df_y, cv=5)
-print("Ridge Scores")
-print(scores_ridge_sel)
-print(np.mean(scores_ridge_sel))
-
-lasso_all_sel: Lasso = Lasso(alpha=0.0015)
-scores_lasso_sel: np.ndarray = cross_val_score(lasso_all_sel,
-                                               df_filtered_data, df_y, cv=5)
-print("Lasso Scores")
-print(scores_lasso_sel)
-print(np.mean(scores_lasso_sel))
-
-print("8. Plotting Lasso and Ridge coefficients compared to Linear")
-linear_coefficients_sel: np.ndarray = lm_sel.coef_
-ridge_coefficients_sel: np.ndarray = lm_rid_sel.coef_
-lasso_coefficients_sel: np.ndarray = lm_lasso_sel.coef_
-
-models_coefficients_sel: dict = {"Linear": linear_coefficients_sel,
-                                 "Ridge": ridge_coefficients_sel,
-                                 "Lasso": lasso_coefficients_sel}
-colours_: [str] = ["red", "blue", "green"]
-
-create_plot_compare_coefficients(models_coefficients_sel, colours_)
-
-"""
-CONCLUSIONS:
-For starters, the dataset is not big enough to be stable. Different 
-executions will get different training and testing sets that will make
-an big impact in how models behave
-Cross-validation improves this
-Lasso and Ridge have a better performance than simple Linear models
-After optimising and regularising coefficients using Lasso, the 
-performance of the simple linear model is similar
-"""
