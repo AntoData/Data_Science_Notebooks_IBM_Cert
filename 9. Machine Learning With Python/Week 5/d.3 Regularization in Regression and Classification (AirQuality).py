@@ -2,34 +2,31 @@ import pandas as pd
 import numpy as np
 import scipy
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, \
     explained_variance_score, mean_absolute_error
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import matplotlib.pyplot as plt
 
 """
-SOURCE: "https://web.stanford.edu/~hastie/ElemStatLearn/datasets/
-prostate.data"
+SOURCE: "https://archive.ics.uci.edu/ml/machine-learning-databases/00360/
+AirQualityUCI.zip"
 
-Stamey et al. (1989)
-“Prostate specific antigen in the diagnosis and treatment of 
-adenocarcinoma of the prostate.”
-Journal of Urology.
+Title:
+“Field deployment of a multiparametric gas sensor array for air 
+pollution monitoring purposes”
 
-VARIABLE X
-Variables	Description
-lcavol	    log cancer volume
-lweight	    log prostate weight
-age	        patient age
-lbph	    log benign prostatic hyperplasia amount
-svi	        seminal vesicle invasion (0/1)
-lcp	        log capsular penetration
-gleason	    Gleason score
-pgg45	    % Gleason scores 4 or 5
+Authors:
+Luis De Vito, Enrico Massera, Salvatore Pardo, Giuseppe Di Francia
 
-VARIABLE Y
-Variable	Description
-lpsa	    log PSA — target variable
+Published In:
+Sensors and Actuators B: Chemical, Volume 129, Issue 2, 2008, 
+Pages 750–757
+
+DOI:
+10.1016/j.snb.2007.09.060
+
+https://www.sciencedirect.com/science/article/abs/pii/S0925400507013693
 
 We will split the dataset in training and testing sets (already preset 
 by dataset)
@@ -262,53 +259,73 @@ def create_plot_compare_coefficients(models_coefficients: dict,
 
 print("1. Let's open the file")
 # Source of the dataset
-url: str = "https://hastie.su.domains/ElemStatLearn/datasets/prostate.data"
-df_prostate: pd.DataFrame = pd.read_csv(url, sep="\t")
-df_prostate.drop(inplace=True, columns=["Unnamed: 0"])
+url: str = "./AirQualityUCI.csv"
+df_air_quality: pd.DataFrame = pd.read_csv(url, sep=";", decimal=",")
 print("1.1 Let's check its content")
-print(df_prostate.head())
+print(df_air_quality.head())
 
 print("2. Data preprocessing")
-print("2.1 Turning all categorical features into numeric ones using"
-      " get_dummies")
-df_prostate_encoded: pd.DataFrame = pd.get_dummies(df_prostate,
-                                                   drop_first=True)
+df_air_quality_encoded: pd.DataFrame = df_air_quality.replace(-200, pd.NA)
+
+print("2.1 Forcing columns to be numeric")
+cols_to_fix: [str] = [
+    "CO(GT)", "PT08.S1(CO)", "NMHC(GT)", "C6H6(GT)",
+    "PT08.S2(NMHC)", "NOx(GT)", "PT08.S3(NOx)", "NO2(GT)",
+    "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"
+]
+
+for col in cols_to_fix:
+    df_air_quality_encoded[col] = pd.to_numeric(df_air_quality_encoded[col],
+                                                errors='coerce')
+
 print("2.2 Recheck now columns, types and data")
-print(df_prostate_encoded.columns)
-print(df_prostate_encoded.head())
-print(df_prostate_encoded.dtypes)
+print(df_air_quality_encoded.columns)
+print(df_air_quality_encoded.head())
+print(df_air_quality_encoded.dtypes)
 
-print("2.4 Dropping NA")
-df_prostate_encoded.dropna(inplace=True)
+print("2.4 Getting training and testing sets")
+df_x_pre: pd.DataFrame = df_air_quality_encoded[[
+  "PT08.S1(CO)",       # Tin Oxide sensor
+  "PT08.S2(NMHC)",     # Metal Oxide sensor
+  "PT08.S3(NOx)",      # Metal Oxide sensor
+  "PT08.S4(NO2)",      # Metal Oxide sensor
+  "PT08.S5(O3)",       # Metal Oxide sensor
+  "T",                 # Temperature (°C)
+  "RH",                # Relative Humidity (%)
+  "AH"                 # Absolute Humidity
+]].copy()
 
-print("2.5 Getting p-values and correlation coefficients for each feature")
-df_x_pre: pd.DataFrame = df_prostate_encoded.drop(columns=['lpsa', 'train_T'])
-df_y_pre: pd.DataFrame = df_prostate_encoded[['lpsa']]
+df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
+
+print("2.5 Dropping NA")
+df_x_pre.replace("nan", pd.NA, inplace=True)
+df_x_pre.dropna(inplace=True)
+
+df_y_pre.replace("nan", pd.NA, inplace=True)
+df_y_pre.dropna(inplace=True)
+
+print("2.6 Getting p-values and correlation coefficients for each feature")
 for col in df_x_pre.columns:
     pearson_coef, p_value = scipy.stats.pearsonr(df_x_pre[col],
-                                                 df_y_pre['lpsa'])
-    print(f"{col}: Pearson Coefficient ={pearson_coef: .4f}, "
+                                                 df_y_pre['C6H6(GT)'])
+    print(f"{col}: Pearson Coefficient = {pearson_coef: .4f}, "
           f"p-value = {p_value: .4e}")
 
-print("2.6 Getting training and testing sets")
-df_x_pre: pd.DataFrame = df_prostate_encoded.drop(columns='lpsa')
-df_y_pre: pd.DataFrame = df_prostate_encoded[['lpsa', 'train_T']]
+print("2.7 Splitting x and y into training and testing sets")
+x_train_pre: pd.DataFrame
+x_test_pre: pd.DataFrame
+y_train_pre: pd.DataFrame
+y_test_pre: pd.DataFrame
 
-x_train_pre: pd.DataFrame = df_x_pre[df_x_pre["train_T"]].drop(
-    columns=["train_T"])
-x_test_pre: pd.DataFrame = df_x_pre[~df_x_pre["train_T"]].drop(
-    columns=["train_T"])
-y_train_pre: pd.DataFrame = df_y_pre[df_y_pre["train_T"]]['lpsa'].drop(
-    columns=["train_T"])
-y_test_pre: pd.DataFrame = df_y_pre[~df_y_pre["train_T"]]['lpsa'].drop(
-    columns=["train_T"])
+x_train_pre, x_test_pre, y_train_pre, y_test_pre = train_test_split(
+    df_x_pre, df_y_pre, test_size=0.3, random_state=42)
 
-print("2.7 Getting only numeric features of train set to "
+print("2.8 Getting only numeric features of train set to "
       "apply Standard Scaler later")
 x_train_pre_numeric_columns: pd.Index = \
     x_train_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_train_pre_numeric_columns)
-print("2.8 Getting non-numeric features, in this case all boolean features")
+print("2.9 Getting non-numeric features, in this case all boolean features")
 x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
@@ -317,12 +334,12 @@ df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
     x_train_pre_numeric_columns]
 print("")
 
-print("2.9 Applying standard scaler to numeric features in train set")
+print("2.10 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
 std_sclr.fit(df_x_train_pre_numeric)
 x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("2.10 Binding non numeric features with scaled numeric features again")
+print("2.11 Binding non numeric features with scaled numeric features again")
 df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_train_numeric_scaled,
     columns=x_train_pre_numeric_columns,
@@ -332,12 +349,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-print("2.11 Getting only numeric features of test set to "
+print("2.12 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("2.12 Getting non-numeric features, in this case all boolean features")
+print("2.13 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -345,10 +362,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("2.13 Applying Standard scale already trained for train set")
+print("2.14 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("2.14 Binding non numeric features with scaled numeric features again")
+print("2.15 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
@@ -372,13 +389,13 @@ y_pred_linear: np.ndarray = lm.predict(x_test)
 regression_results(y_test, y_pred_linear, "Linear")
 
 print("Ridge Regression")
-lm_rid: Ridge = Ridge(alpha=10)
+lm_rid: Ridge = Ridge(alpha=0.001)
 lm_rid.fit(x_train, y_train)
 y_pred_ridge: np.ndarray = lm_rid.predict(x_test)
 regression_results(y_test, y_pred_ridge, "Ridge")
 
 print("Lasso Regression")
-lm_lasso: Lasso = Lasso(alpha=0.01, max_iter=10000)
+lm_lasso: Lasso = Lasso(alpha=0.001, max_iter=10000)
 lm_lasso.fit(x_train, y_train)
 y_pred_lasso: np.ndarray = lm_lasso.predict(x_test)
 regression_results(y_test, y_pred_lasso, "Lasso")
@@ -438,21 +455,27 @@ df_lasso_coef: pd.DataFrame = pd.DataFrame(
 # 0
 col_selected_features = x_train.columns[
     df_lasso_coef["coefficients"].to_numpy() != 0]
-df_filtered_data = df_prostate_encoded[col_selected_features]
+df_filtered_data = df_air_quality_encoded[col_selected_features]
 
 print("5. Post processing data again")
 print("5.1 Getting training and testing sets")
-df_x_pre: pd.DataFrame = pd.concat([df_filtered_data,
-                                    df_prostate_encoded[["train_T"]]], axis=1)
-df_y_pre: pd.DataFrame = df_prostate_encoded[['lpsa', 'train_T']]
-x_train_pre: pd.DataFrame = df_x_pre[df_x_pre["train_T"]].drop(
-    columns=["train_T"])
-x_test_pre: pd.DataFrame = df_x_pre[~df_x_pre["train_T"]].drop(
-    columns=["train_T"])
-y_train_pre: pd.DataFrame = df_y_pre[df_y_pre["train_T"]]['lpsa'].drop(
-    columns=["train_T"])
-y_test_pre: pd.DataFrame = df_y_pre[~df_y_pre["train_T"]]['lpsa'].drop(
-    columns=["train_T"])
+
+df_x_pre: pd.DataFrame = df_filtered_data
+df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
+
+df_x_pre.replace("nan", pd.NA, inplace=True)
+df_x_pre.dropna(inplace=True)
+
+df_y_pre.replace("nan", pd.NA, inplace=True)
+df_y_pre.dropna(inplace=True)
+
+x_train_pre: pd.DataFrame
+x_test_pre: pd.DataFrame
+y_train_pre: pd.DataFrame
+y_test_pre: pd.DataFrame
+
+x_train_pre, x_test_pre, y_train_pre, y_test_pre = train_test_split(
+    df_x_pre, df_y_pre, test_size=0.3, random_state=42)
 
 print("5.2 Getting only numeric features of train set to "
       "apply Standard Scaler later")
@@ -538,9 +561,9 @@ regression_results(y_test_sel, y_pred_lasso_sel, "Lasso")
 
 print("7. Plotting predictions vs actual data (after Lasso optimisation)")
 y_test_plot_sel = y_test_sel.reset_index(drop=True)
-y_pred_linear_sel_series = pd.Series(y_pred_linear_sel)
-y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel)
-y_pred_lasso_sel_series = pd.Series(y_pred_lasso_sel)
+y_pred_linear_sel_series = pd.Series(y_pred_linear_sel.ravel())
+y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel.ravel())
+y_pred_lasso_sel_series = pd.Series(y_pred_lasso_sel.ravel())
 _, axes = plt.subplots(2, 3, figsize=(18, 10), sharey=True)
 create_plot_scatter_actual_vs_predicted(axes, 0, 0, y_test_plot_sel,
                                         y_pred_linear_sel_series,

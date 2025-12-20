@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import scipy
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, mean_squared_error, \
@@ -276,18 +277,25 @@ print(df_ames_housing_encoded.dtypes)
 print("2.4 Dropping NA")
 df_ames_housing_encoded.dropna(inplace=True)
 
-print("2.5 Getting training and testing sets")
+print("2.5 Getting p-values and correlation coefficients for each feature")
 df_x_pre: pd.DataFrame = df_ames_housing_encoded.drop(columns='SalePrice')
 df_y_pre: pd.DataFrame = df_ames_housing_encoded[['SalePrice']]
+for col in df_x_pre.columns:
+    pearson_coef, p_value = scipy.stats.pearsonr(df_x_pre[col],
+                                                 df_y_pre['SalePrice'])
+    print(f"{col}: Pearson Coefficient ={pearson_coef: .4f}, "
+          f"p-value = {p_value: .4e}")
+
+print("2.6 Getting training and testing sets")
 x_train_pre, x_test_pre, y_train_pre, y_test_pre \
     = train_test_split(df_x_pre, df_y_pre, random_state=42)
 
-print("2.6 Getting only numeric features of train set to "
+print("2.7 Getting only numeric features of train set to "
       "apply Standard Scaler later")
 x_train_pre_numeric_columns: pd.Index = \
     x_train_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_train_pre_numeric_columns)
-print("2.4 Getting non-numeric features, in this case all boolean features")
+print("2.8 Getting non-numeric features, in this case all boolean features")
 x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
@@ -296,12 +304,12 @@ df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
     x_train_pre_numeric_columns]
 print("")
 
-print("2.7 Applying standard scaler to numeric features in train set")
+print("2.9 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
 std_sclr.fit(df_x_train_pre_numeric)
 x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("2.8 Binding non numeric features with scaled numeric features again")
+print("2.10 Binding non numeric features with scaled numeric features again")
 df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_train_numeric_scaled,
     columns=x_train_pre_numeric_columns,
@@ -311,12 +319,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-print("2.9 Getting only numeric features of test set to "
+print("2.11 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("2.10 Getting non-numeric features, in this case all boolean features")
+print("2.12 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -324,10 +332,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("2.11 Applying Standard scale already trained for train set")
+print("2.13 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("2.12 Binding non numeric features with scaled numeric features again")
+print("2.14 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
