@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import scipy
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, mean_squared_error, \
@@ -274,21 +275,54 @@ print(df_ames_housing_encoded.columns)
 print(df_ames_housing_encoded.head())
 print(df_ames_housing_encoded.dtypes)
 
-print("2.4 Dropping NA")
-df_ames_housing_encoded.dropna(inplace=True)
 
-print("2.5 Getting p-values and correlation coefficients for each feature")
+print("2.3 Getting variable x and y")
 df_x_pre: pd.DataFrame = df_ames_housing_encoded.drop(columns='SalePrice')
 df_y_pre: pd.DataFrame = df_ames_housing_encoded[['SalePrice']]
-for col in df_x_pre.columns:
-    pearson_coef, p_value = scipy.stats.pearsonr(df_x_pre[col],
-                                                 df_y_pre['SalePrice'])
-    print(f"{col}: Pearson Coefficient ={pearson_coef: .4f}, "
-          f"p-value = {p_value: .4e}")
 
-print("2.6 Getting training and testing sets")
+print("2.4 Getting training and testing sets")
 x_train_pre, x_test_pre, y_train_pre, y_test_pre \
     = train_test_split(df_x_pre, df_y_pre, random_state=42)
+
+print("2.5 Replacing NA values by median")
+x_imputer: SimpleImputer = SimpleImputer(strategy="median")
+
+x_imputer.fit(x_train_pre)
+
+x_train_pre: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_train_pre),
+    columns=x_train_pre.columns,
+    index=x_train_pre.index,
+)
+
+x_test_pre: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_test_pre),
+    columns=x_test_pre.columns,
+    index=x_test_pre.index,
+)
+
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+y_imputer.fit(y_train_pre)
+
+y_train_pre: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_train_pre),
+    columns=y_train_pre.columns,
+    index=y_train_pre.index,
+)
+
+y_test_pre: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_test_pre),
+    columns=y_test_pre.columns,
+    index=y_test_pre.index,
+)
+
+print("2.6 Getting p-values and correlation coefficients for each feature")
+for col in x_train_pre.columns:
+    pearson_coef, p_value = scipy.stats.pearsonr(
+        x_train_pre[col].to_numpy().ravel(),
+        y_train_pre[['SalePrice']].to_numpy().ravel())
+    print(f"{col}: Pearson Coefficient = {pearson_coef: .4f}, "
+          f"p-value = {p_value: .4e}")
 
 print("2.7 Getting only numeric features of train set to "
       "apply Standard Scaler later")
@@ -427,8 +461,27 @@ df_ames_housing_preprocessed = pd.concat([df_numeric_scaled,
 print(df_ames_housing_preprocessed)
 
 print("4.1.4 Getting variables x and y")
-df_x: pd.DataFrame = df_ames_housing_preprocessed
-df_y: pd.Series = df_ames_housing_encoded['SalePrice']
+df_x: pd.DataFrame = df_ames_housing_preprocessed.copy()
+df_y: pd.Series = df_ames_housing_encoded['SalePrice'].copy()
+
+x_imputer: SimpleImputer = SimpleImputer(strategy="median")
+
+x_imputer.fit(df_x)
+
+df_x: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(df_x),
+    columns=df_x.columns,
+    index=df_x.index,
+)
+
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+y_imputer.fit(df_y.to_frame())
+
+df_y: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(df_y.to_frame()),
+    columns=["'SalePrice"],
+    index=df_y.index,
+)
 
 
 lin_model_all: LinearRegression = LinearRegression()
@@ -481,9 +534,40 @@ ind_selected_features: [int] = \
 # We use the indexes to keep only those columns using iloc
 df_filtered_data: pd.DataFrame = df_x.iloc[:, ind_selected_features]
 
-print("5.4 Diving the newly filtered data in training and testing sets")
+print("5.4 Dividing the newly filtered data in training and testing sets")
 x_train_sel, x_test_sel, y_train_sel, y_test_sel = train_test_split(
     df_filtered_data, df_y, test_size=0.6, random_state=42)
+
+x_imputer: SimpleImputer = SimpleImputer(strategy="median")
+
+x_imputer.fit(x_train_sel)
+
+x_train_sel: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_train_sel),
+    columns=x_train_sel.columns,
+    index=x_train_sel.index,
+)
+
+x_test_sel: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_test_sel),
+    columns=x_test_sel.columns,
+    index=x_test_sel.index,
+)
+
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+y_imputer.fit(y_train_sel)
+
+y_train_sel: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_train_sel),
+    columns=y_train_sel.columns,
+    index=y_train_sel.index,
+)
+
+y_test_sel: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_test_sel),
+    columns=y_test_sel.columns,
+    index=y_test_sel.index,
+)
 
 print("6. Training the models with the filtered data")
 print("Linear Regression (Filtered coefficients)")
@@ -508,9 +592,9 @@ regression_results(y_test_sel, y_pred_lasso_sel, "Lasso")
 
 print("7. Plotting predictions vs actual data (after Lasso optimisation)")
 y_test_plot_sel = y_test_sel.reset_index(drop=True)
-y_pred_linear_sel_series = pd.Series(y_pred_linear_sel)
-y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel)
-y_pred_lasso_sel_series = pd.Series(y_pred_lasso_sel)
+y_pred_linear_sel_series = pd.Series(y_pred_linear_sel.ravel())
+y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel.ravel())
+y_pred_lasso_sel_series = pd.Series(y_pred_lasso_sel.ravel())
 _, axes = plt.subplots(2, 3, figsize=(18, 10), sharey=True)
 create_plot_scatter_actual_vs_predicted(axes, 0, 0, y_test_plot_sel,
                                         y_pred_linear_sel_series,
@@ -554,7 +638,7 @@ print("Lasso Scores")
 print(scores_lasso_sel)
 print(np.mean(scores_lasso_sel))
 
-print("8. Plotting Lasso and Ridge coefficients compared to Linear")
+print("9. Plotting Lasso and Ridge coefficients compared to Linear")
 linear_coefficients_sel: np.ndarray = lm_sel.coef_
 ridge_coefficients_sel: np.ndarray = lm_rid_sel.coef_
 lasso_coefficients_sel: np.ndarray = lm_lasso_sel.coef_

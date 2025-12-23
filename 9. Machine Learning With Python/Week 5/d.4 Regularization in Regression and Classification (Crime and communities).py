@@ -10,24 +10,12 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import matplotlib.pyplot as plt
 
 """
-SOURCE: "https://archive.ics.uci.edu/ml/machine-learning-databases/00360/
-AirQualityUCI.zip"
+SOURCE: "https://archive.ics.uci.edu/dataset/183/communities+and+crime"
 
 Title:
-“Field deployment of a multiparametric gas sensor array for air 
-pollution monitoring purposes”
-
-Authors:
-Luis De Vito, Enrico Massera, Salvatore Pardo, Giuseppe Di Francia
-
-Published In:
-Sensors and Actuators B: Chemical, Volume 129, Issue 2, 2008, 
-Pages 750–757
-
-DOI:
-10.1016/j.snb.2007.09.060
-
-https://www.sciencedirect.com/science/article/abs/pii/S0925400507013693
+“Communities within the United States. The data combines socio-economic
+ data from the 1990 US Census, law enforcement data from the 1990 US 
+ LEMAS survey, and crime data from the 1995 FBI UCR.”
 
 We will split the dataset in training and testing sets (already preset 
 by dataset)
@@ -260,22 +248,81 @@ def create_plot_compare_coefficients(models_coefficients: dict,
 
 print("1. Let's open the file")
 # Source of the dataset
-file_path: str = "./AirQualityUCI.csv"
-df_air_quality: pd.DataFrame = pd.read_csv(file_path, sep=";", decimal=",")
+file_path: str = "./communities.data"
+
+y_column: [str] = ["ViolentCrimesPerPop"]
+
+all_columns: [str] = [
+    "state", "county", "community", "communityname", "fold",
+    "population", "householdsize", "racepctblack", "racePctWhite",
+    "racePctAsian", "racePctHisp", "agePct12t21", "agePct12t29",
+    "agePct16t24", "agePct65up", "numbUrban", "pctUrban",
+    "medIncome", "pctWWage", "pctWFarmSelf", "pctWInvInc",
+    "pctWSocSec", "pctWPubAsst", "pctWRetire", "medFamInc",
+    "perCapInc", "whitePerCap", "blackPerCap", "indianPerCap",
+    "AsianPerCap", "OtherPerCap", "HispPerCap", "NumUnderPov",
+    "PctPopUnderPov", "PctLess9thGrade", "PctNotHSGrad",
+    "PctBSorMore", "PctUnemployed", "PctEmploy", "PctEmplManu",
+    "PctEmplProfServ", "PctOccupManu", "PctOccupMgmtProf",
+    "MalePctDivorce", "MalePctNevMarr", "FemalePctDiv",
+    "TotalPctDiv", "PersPerFam", "PctFam2Par", "PctKids2Par",
+    "PctYoungKids2Par", "PctTeen2Par", "PctWorkMomYoungKids",
+    "PctWorkMom", "NumIlleg", "PctIlleg", "NumImmig",
+    "PctImmigRecent", "PctImmigRec5", "PctImmigRec8",
+    "PctImmigRec10", "PctRecentImmig", "PctRecImmig5",
+    "PctRecImmig8", "PctRecImmig10", "PctSpeakEnglOnly",
+    "PctNotSpeakEnglWell", "PctLargHouseFam", "PctLargHouseOccup",
+    "PersPerOccupHous", "PersPerOwnOccHous", "PersPerRentOccHous",
+    "PctPersOwnOccup", "PctPersDenseHous", "PctHousLess3BR",
+    "MedNumBR", "HousVacant", "PctHousOccup", "PctHousOwnOcc",
+    "PctVacantBoarded", "PctVacMore6Mos", "MedYrHousBuilt",
+    "PctHousNoPhone", "PctWOFullPlumb", "OwnOccLowQuart",
+    "OwnOccMedVal", "OwnOccHiQuart", "RentLowQ", "RentMedian",
+    "RentHighQ", "MedRent", "MedRentPctHousInc",
+    "MedOwnCostPctInc", "MedOwnCostPctIncNoMtg",
+    "NumInShelters", "NumStreet", "PctForeignBorn",
+    "PctBornSameState", "PctSameHouse85", "PctSameCity85",
+    "PctSameState85", "LemasSwornFT", "LemasSwFTPerPop",
+    "LemasSwFTFieldOps", "LemasSwFTFieldPerPop",
+    "LemasTotalReq", "LemasTotReqPerPop", "PolicReqPerOffic",
+    "PolicPerPop", "RacialMatchCommPol", "PctPolicWhite",
+    "PctPolicBlack", "PctPolicHisp", "PctPolicAsian",
+    "PctPolicMinor", "OfficAssgnDrugUnits", "NumKindsDrugsSeiz",
+    "PolicAveOTWorked", "LandArea", "PopDens",
+    "PctUsePubTrans", "PolicCars", "PolicOperBudg",
+    "LemasPctPolicOnPatr", "LemasGangUnitDeploy",
+    "LemasPctOfficDrugUn", "PolicBudgPerPop",
+    "ViolentCrimesPerPop",
+]
+
+non_predictive_columns: {str} = {
+    "state",
+    "county",
+    "community",
+    "communityname",
+    "fold",
+}
+
+x_columns: [str] = [
+    col for col in all_columns
+    if col not in non_predictive_columns
+    and col not in y_column
+]
+
+df_air_quality: pd.DataFrame = pd.read_csv(
+    "communities.data",
+    header=None,
+    names=all_columns,
+    na_values="?"
+)
 print("1.1 Let's check its content")
 print(df_air_quality.head())
 
 print("2. Data preprocessing")
-df_air_quality_encoded: pd.DataFrame = df_air_quality.replace(-200, pd.NA)
+df_air_quality_encoded: pd.DataFrame = df_air_quality.copy()
 
 print("2.1 Forcing columns to be numeric")
-cols_to_fix: [str] = [
-    "CO(GT)", "PT08.S1(CO)", "NMHC(GT)", "C6H6(GT)",
-    "PT08.S2(NMHC)", "NOx(GT)", "PT08.S3(NOx)", "NO2(GT)",
-    "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"
-]
-
-for col in cols_to_fix:
+for col in x_columns:
     df_air_quality_encoded[col] = pd.to_numeric(df_air_quality_encoded[col],
                                                 errors='coerce')
 
@@ -284,25 +331,12 @@ print(df_air_quality_encoded.columns)
 print(df_air_quality_encoded.head())
 print(df_air_quality_encoded.dtypes)
 
-print("2.4 Getting training and testing sets")
-df_x_pre: pd.DataFrame = df_air_quality_encoded[[
-  "PT08.S1(CO)",       # Tin Oxide sensor
-  "PT08.S2(NMHC)",     # Metal Oxide sensor
-  "PT08.S3(NOx)",      # Metal Oxide sensor
-  "PT08.S4(NO2)",      # Metal Oxide sensor
-  "PT08.S5(O3)",       # Metal Oxide sensor
-  "T",                 # Temperature (°C)
-  "RH",                # Relative Humidity (%)
-  "AH"                 # Absolute Humidity
-]].copy()
+print("2.3 Getting variable x and variable y")
+df_x_pre: pd.DataFrame = df_air_quality_encoded[x_columns].copy()
 
-df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
+df_y_pre: pd.DataFrame = df_air_quality_encoded[y_column].copy()
 
-print("2.5 Replacing nan by NA")
-df_x_pre.replace("nan", pd.NA, inplace=True)
-df_y_pre.replace("nan", pd.NA, inplace=True)
-
-print("2.6 Splitting x and y into training and testing sets")
+print("2.4 Splitting x and y into training and testing sets")
 x_train_pre: pd.DataFrame
 x_test_pre: pd.DataFrame
 y_train_pre: pd.DataFrame
@@ -311,7 +345,7 @@ y_test_pre: pd.DataFrame
 x_train_pre, x_test_pre, y_train_pre, y_test_pre = train_test_split(
     df_x_pre, df_y_pre, test_size=0.3, random_state=42)
 
-print("2.7 Replacing NA values by median")
+print("2.5 Replacing NA values by median")
 x_imputer: SimpleImputer = SimpleImputer(strategy="median")
 
 x_imputer.fit(x_train_pre)
@@ -343,21 +377,20 @@ y_test_pre: pd.DataFrame = pd.DataFrame(
     index=y_test_pre.index,
 )
 
-print("2.8 Getting p-values and correlation coefficients for each feature")
+print("2.6 Getting p-values and correlation coefficients for each feature")
 for col in x_train_pre.columns:
     pearson_coef, p_value = scipy.stats.pearsonr(
         x_train_pre[col].to_numpy().ravel(),
-        y_train_pre[['C6H6(GT)']].to_numpy().ravel())
+        y_train_pre[y_column].to_numpy().ravel())
     print(f"{col}: Pearson Coefficient = {pearson_coef: .4f}, "
           f"p-value = {p_value: .4e}")
 
-
-print("2.9 Getting only numeric features of train set to "
+print("2.7 Getting only numeric features of train set to "
       "apply Standard Scaler later")
 x_train_pre_numeric_columns: pd.Index = \
     x_train_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_train_pre_numeric_columns)
-print("2.10 Getting non-numeric features, in this case all boolean features")
+print("2.9 Getting non-numeric features, in this case all boolean features")
 x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
@@ -366,12 +399,12 @@ df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
     x_train_pre_numeric_columns]
 print("")
 
-print("2.11 Applying standard scaler to numeric features in train set")
+print("2.8 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
 std_sclr.fit(df_x_train_pre_numeric)
 x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("2.12 Binding non numeric features with scaled numeric features again")
+print("2.9 Binding non numeric features with scaled numeric features again")
 df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_train_numeric_scaled,
     columns=x_train_pre_numeric_columns,
@@ -381,12 +414,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-print("2.13 Getting only numeric features of test set to "
+print("2.10 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("2.14 Getting non-numeric features, in this case all boolean features")
+print("2.11 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -394,10 +427,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("2.15 Applying Standard scale already trained for train set")
+print("2.12 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("2.16 Binding non numeric features with scaled numeric features again")
+print("2.13 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
@@ -421,13 +454,13 @@ y_pred_linear: np.ndarray = lm.predict(x_test)
 regression_results(y_test, y_pred_linear, "Linear")
 
 print("Ridge Regression")
-lm_rid: Ridge = Ridge(alpha=0.001)
+lm_rid: Ridge = Ridge(alpha=10)
 lm_rid.fit(x_train, y_train)
 y_pred_ridge: np.ndarray = lm_rid.predict(x_test)
 regression_results(y_test, y_pred_ridge, "Ridge")
 
 print("Lasso Regression")
-lm_lasso: Lasso = Lasso(alpha=0.001, max_iter=10000)
+lm_lasso: Lasso = Lasso(alpha=0.1, max_iter=10000)
 lm_lasso.fit(x_train, y_train)
 y_pred_lasso: np.ndarray = lm_lasso.predict(x_test)
 regression_results(y_test, y_pred_lasso, "Lasso")
@@ -487,17 +520,17 @@ df_lasso_coef: pd.DataFrame = pd.DataFrame(
 # 0
 col_selected_features = x_train.columns[
     df_lasso_coef["coefficients"].to_numpy() != 0]
-df_filtered_data = df_air_quality_encoded[col_selected_features]
-# We are not filtering any coefficient here
+df_filtered_data = df_air_quality_encoded[col_selected_features].copy()
 
 print("5. Post processing data again")
 print("5.1 Getting training and testing sets")
 
-df_x_pre: pd.DataFrame = df_filtered_data.copy()
-df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
+df_x_pre: pd.DataFrame = df_filtered_data
+df_y_pre: pd.DataFrame = df_air_quality_encoded[y_column].copy()
 
 df_x_pre.replace("nan", pd.NA, inplace=True)
 df_y_pre.replace("nan", pd.NA, inplace=True)
+
 
 x_train_pre: pd.DataFrame
 x_test_pre: pd.DataFrame
@@ -646,7 +679,3 @@ create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot_sel,
                                      y_pred_lasso_sel_series,
                                      "Lasso", "Lasso vs Actual", "red")
 plt.show()
-"""
-When the variables have strong linear correlation, applying Ridge and 
-Lasso at best match the performance of the original Linear Model
-"""
