@@ -284,7 +284,7 @@ print(df_air_quality_encoded.columns)
 print(df_air_quality_encoded.head())
 print(df_air_quality_encoded.dtypes)
 
-print("2.4 Getting training and testing sets")
+print("2.3 Getting training and testing sets")
 df_x_pre: pd.DataFrame = df_air_quality_encoded[[
   "PT08.S1(CO)",       # Tin Oxide sensor
   "PT08.S2(NMHC)",     # Metal Oxide sensor
@@ -298,11 +298,11 @@ df_x_pre: pd.DataFrame = df_air_quality_encoded[[
 
 df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
 
-print("2.5 Replacing nan by NA")
+print("2.4 Replacing nan by NA")
 df_x_pre.replace("nan", pd.NA, inplace=True)
 df_y_pre.replace("nan", pd.NA, inplace=True)
 
-print("2.6 Splitting x and y into training and testing sets")
+print("2.5 Splitting x and y into training and testing sets")
 x_train_pre: pd.DataFrame
 x_test_pre: pd.DataFrame
 y_train_pre: pd.DataFrame
@@ -311,7 +311,7 @@ y_test_pre: pd.DataFrame
 x_train_pre, x_test_pre, y_train_pre, y_test_pre = train_test_split(
     df_x_pre, df_y_pre, test_size=0.3, random_state=42)
 
-print("2.7 Replacing NA values by median")
+print("2.6 Replacing NA values by median")
 x_imputer: SimpleImputer = SimpleImputer(strategy="median")
 
 x_imputer.fit(x_train_pre)
@@ -343,7 +343,7 @@ y_test_pre: pd.DataFrame = pd.DataFrame(
     index=y_test_pre.index,
 )
 
-print("2.8 Getting p-values and correlation coefficients for each feature")
+print("2.7 Getting p-values and correlation coefficients for each feature")
 for col in x_train_pre.columns:
     pearson_coef, p_value = scipy.stats.pearsonr(
         x_train_pre[col].to_numpy().ravel(),
@@ -352,12 +352,12 @@ for col in x_train_pre.columns:
           f"p-value = {p_value: .4e}")
 
 
-print("2.9 Getting only numeric features of train set to "
+print("2.8 Getting only numeric features of train set to "
       "apply Standard Scaler later")
 x_train_pre_numeric_columns: pd.Index = \
     x_train_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_train_pre_numeric_columns)
-print("2.10 Getting non-numeric features, in this case all boolean features")
+print("2.9 Getting non-numeric features, in this case all boolean features")
 x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
@@ -366,12 +366,12 @@ df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
     x_train_pre_numeric_columns]
 print("")
 
-print("2.11 Applying standard scaler to numeric features in train set")
+print("2.10 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
 std_sclr.fit(df_x_train_pre_numeric)
 x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("2.12 Binding non numeric features with scaled numeric features again")
+print("2.11 Binding non numeric features with scaled numeric features again")
 df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_train_numeric_scaled,
     columns=x_train_pre_numeric_columns,
@@ -381,12 +381,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-print("2.13 Getting only numeric features of test set to "
+print("2.12 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("2.14 Getting non-numeric features, in this case all boolean features")
+print("2.13 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -394,10 +394,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("2.15 Applying Standard scale already trained for train set")
+print("2.14 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("2.16 Binding non numeric features with scaled numeric features again")
+print("2.15 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
@@ -458,13 +458,13 @@ create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot,
                                      "Lasso", "Lasso vs Actual", "red")
 plt.show()
 
-print("4. Post-processing")
-print("4.1 Getting model's coefficients")
+print("5. Post-processing")
+print("5.1 Getting model's coefficients")
 linear_coefficients: np.ndarray = lm.coef_
 ridge_coefficients: np.ndarray = lm_rid.coef_
 lasso_coefficients: np.ndarray = lm_lasso.coef_
 
-print("4.2 Comparing Lasso and Ridge coefficients to Linear")
+print("5.2 Comparing Lasso and Ridge coefficients to Linear")
 models_coefficients_: dict = {"Linear": linear_coefficients,
                               "Ridge": ridge_coefficients,
                               "Lasso": lasso_coefficients}
@@ -472,7 +472,7 @@ colours_: [str] = ["red", "blue", "green"]
 
 create_plot_compare_coefficients(models_coefficients_, colours_)
 
-print("4.3 Applying Lasso reduction, removing every feature that is 0 "
+print("5.3 Applying Lasso reduction, removing every feature that is 0 "
       "in Lasso's coefficients in the other models")
 df_linear_coef: pd.DataFrame = pd.DataFrame(
     {"coefficients": linear_coefficients.ravel()})
@@ -490,8 +490,8 @@ col_selected_features = x_train.columns[
 df_filtered_data = df_air_quality_encoded[col_selected_features]
 # We are not filtering any coefficient here
 
-print("5. Post processing data again")
-print("5.1 Getting training and testing sets")
+print("6. Post processing data again")
+print("6.1 Getting training and testing sets")
 
 df_x_pre: pd.DataFrame = df_filtered_data.copy()
 df_y_pre: pd.DataFrame = df_air_quality_encoded[['C6H6(GT)']].copy()
@@ -507,7 +507,7 @@ y_test_pre: pd.DataFrame
 x_train_pre, x_test_pre, y_train_pre, y_test_pre = train_test_split(
     df_x_pre, df_y_pre, test_size=0.3, random_state=42)
 
-print("5.2 Replacing NA values by median")
+print("6.2 Replacing NA values by median")
 x_imputer: SimpleImputer = SimpleImputer(strategy="median")
 
 x_imputer.fit(x_train_pre)
@@ -539,12 +539,12 @@ y_test_pre: pd.DataFrame = pd.DataFrame(
     index=y_test_pre.index,
 )
 
-print("5.3 Getting only numeric features of train set to "
+print("6.3 Getting only numeric features of train set to "
       "apply Standard Scaler later")
 x_train_pre_numeric_columns: pd.Index = \
     x_train_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_train_pre_numeric_columns)
-print("5.4 Getting non-numeric features, in this case all boolean features")
+print("6.4 Getting non-numeric features, in this case all boolean features")
 x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
@@ -553,12 +553,12 @@ df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
     x_train_pre_numeric_columns]
 print("")
 
-print("5.5 Applying standard scaler to numeric features in train set")
+print("6.5 Applying standard scaler to numeric features in train set")
 std_sclr: StandardScaler = StandardScaler()
 std_sclr.fit(df_x_train_pre_numeric)
 x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
 
-print("5.6 Binding non numeric features with scaled numeric features again")
+print("6.6 Binding non numeric features with scaled numeric features again")
 df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_train_numeric_scaled,
     columns=x_train_pre_numeric_columns,
@@ -568,12 +568,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-print("5.7 Getting only numeric features of test set to "
+print("6.7 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("5.8 Getting non-numeric features, in this case all boolean features")
+print("6.8 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -581,10 +581,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("5.9 Applying Standard scale already trained for train set")
+print("6.9 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("5.10 Binding non numeric features with scaled numeric features again")
+print("6.10 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
@@ -600,7 +600,7 @@ x_test_sel: pd.DataFrame = df_x_test_scaled
 y_train_sel: pd.DataFrame = y_train_pre
 y_test_sel: pd.DataFrame = y_test_pre
 
-print("6. Training the models with the filtered data")
+print("7. Training the models with the filtered data")
 print("Linear Regression (Filtered coefficients)")
 lm_sel: LinearRegression = LinearRegression()
 lm_sel.fit(x_train_sel, y_train_sel)
@@ -621,7 +621,7 @@ lm_lasso_sel.fit(x_train_sel, y_train_sel)
 y_pred_lasso_sel: np.ndarray = lm_lasso_sel.predict(x_test_sel)
 regression_results(y_test_sel, y_pred_lasso_sel, "Lasso")
 
-print("7. Plotting predictions vs actual data (after Lasso optimisation)")
+print("8. Plotting predictions vs actual data (after Lasso optimisation)")
 y_test_plot_sel = y_test_sel.reset_index(drop=True)
 y_pred_linear_sel_series = pd.Series(y_pred_linear_sel.ravel())
 y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel.ravel())

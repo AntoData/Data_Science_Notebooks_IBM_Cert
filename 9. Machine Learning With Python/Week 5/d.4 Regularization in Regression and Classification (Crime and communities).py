@@ -649,7 +649,7 @@ regression_results(y_test_sel, y_pred_ridge_sel, "Ridge (Filtered "
                                                  "coefficients)")
 
 print("Lasso Regression (Filtered coefficients)")
-lm_lasso_sel: Lasso = Lasso(alpha=0.0015)
+lm_lasso_sel: Lasso = Lasso(alpha=0.01)
 lm_lasso_sel.fit(x_train_sel, y_train_sel)
 y_pred_lasso_sel: np.ndarray = lm_lasso_sel.predict(x_test_sel)
 regression_results(y_test_sel, y_pred_lasso_sel, "Lasso")
