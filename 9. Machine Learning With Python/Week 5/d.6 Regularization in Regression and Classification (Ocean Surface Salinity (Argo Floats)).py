@@ -1,43 +1,36 @@
+import os
+import glob
 import pandas as pd
 import numpy as np
 import scipy
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, mean_squared_error, \
     explained_variance_score, mean_absolute_error
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import matplotlib.pyplot as plt
 
 """
-SOURCE: exoplanetarchive.ipac.caltech.edu
-Dataset: NASA Planetary Systems (Confirmed Planets)
-The dataset contains astrophysical parameters for all confirmed 
-exoplanets discovered and archived by NASA as of late 2025. 
-It includes orbital characteristics, planetary physical measurements, 
-and host star properties.
+SOURCE: fleetmonitoring.euro-argo.eu / dataselection.euro-argo.eu
+Dataset: Argo Global Marine Float Profile Data
+The dataset contains high-resolution oceanographic vertical profiles 
+collected by the international Argo float program as of early 2026. 
+It captures the physical state of the global ocean, measuring 
+subsurface temperature and salinity relative to pressure.
 
 More details on data: 
-exoplanetarchive.ipac.caltech.edudocs/API_PS_columns.html
+argo.ucsd.edu/data/data-visualizations/
 
-This is an example about how to get the best alpha hyperparameter, 
-avoiding data snooping. In order to do so, you need to divide
-your variables x and y and 3 distinct sets each. A training set 
-we use to train the model, a validation set we use to test different
-alpha hyperparameters to see which one is the best and finally a 
-testing set to test the final performance of the model with the 
-best alpha hyperparameter
-
-With this dataset we will create a regression problem to predict the 
-mass of an exoplanet (log-transformed) using physical and stellar 
-predictors:
+With this dataset, we will create a regression problem to predict ocean 
+Salinity using physical and positional predictors:
 
 Variable x: Independent variables
-Key features including log-transformed Radius and Orbital Period, 
-Stellar Mass, Luminosity, Temperature, and Distance.
+Key features including Sea Water Pressure (PRES), Temperature (TEMP), 
+Latitude, Longitude, and temporal markers (Year/Month).
 
 Variable y: Dependent variable
-Log-transformed Planet Mass (pl_bmassj)
+Practical Salinity (PSAL)
 
 We will perform significant data preprocessing, including:
 - Filtering for confirmed planets with complete physical records.
@@ -46,20 +39,18 @@ outliers.
 - Handling multicollinearity by including redundant stellar properties.
 - Standardizing numeric features using StandardScaler.
 
-We will split the dataset into training, validation and testing sets 
-and create 3 models:
+We will split the dataset into training and testing sets and create 3 
+models:
 - Linear Regression (Ordinary Least Squares)
 - Linear Ridge Regression (L2 Regularization)
 - Linear Lasso Regression (L1 Regularization)
 
-We will iterate over different alpha hyperparameters for Ridge and Lasso
 We will display their evaluation metrics:
 - Explained variance
 - R^2 score
 - Mean Absolute Error (MAE)
 - Mean Square Error (MSE)
 - Root Mean Square Error (RMSE)
-Pick the alpha hyperparameter with the best R^2 score
 
 We will compare the models to demonstrate how Lasso handles 
 high-dimensional noise and multicollinearity to maintain a high R^2
@@ -281,175 +272,68 @@ def create_plot_compare_coefficients(models_coefficients: dict,
     plt.show()
 
 
-def train_validate_test_split(var_x: pd.DataFrame, var_y: pd.DataFrame,
-                              col_y: [str],
-                              train_size: float, val_size: float) \
-        -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame,
-            pd.DataFrame, pd.DataFrame):
+def open_csv_files_in_folder(path_: str) -> pd.DataFrame:
     """
-    Given a variable x and a variable y splits those sets into 3
-    different sets each:
-        - Training set: To train the model
-        - Validation set: To test different alpha hyperparameters
-        - Test set: To test performance of the final model
-    :param var_x: Dataframe that contains the features that compose
-    variable x
-    :param var_y: Dataframe that contains the feature that composes
-    variable x
-    :param col_y: Column that forms variable y
-    :type col_y: [str]
-    :param train_size: Size of the training set
-    :param val_size: Size of the validation set (in comparison with the
-    test set)
-    :return: A tuple with the training, validation and testing set
-    for all 2 variables
+    Given a path to a folder that contains csv files, it will open them
+    and concat their contents to a dataframe
+
+    :param path_: Path to the folder that contains the csv files
+    :type path_: str
+    :return: A dataframe that contains the contents of all the files
+    in the folder
+    :rtype: pd.Dataframe
     """
-    x_train_: pd.DataFrame
-    x_val_test_: pd.DataFrame
-    x_val_: pd.DataFrame
-    x_test_: pd.DataFrame
-    y_train_: pd.DataFrame
-    y_val_test_: pd.DataFrame
-    y_val_: pd.DataFrame
-    y_test_: pd.DataFrame
-    bins_va_test: pd.Categorical
+    csv_files: [str] = glob.glob(os.path.join(path_, "*.csv"))
 
-    y_bins: pd.Categorical = \
-        pd.qcut(var_y[col_y].to_numpy().ravel(), q=10, duplicates="drop")
-
-    x_train_, x_val_test_, y_train_, y_val_test_, bins_train, bins_val_test = \
-        train_test_split(var_x, var_y, y_bins, train_size=train_size,
-                         random_state=10, stratify=y_bins)
-
-    x_val_, x_test_, y_val_, y_test_ = train_test_split(x_val_test_,
-                                                        y_val_test_,
-                                                        train_size=val_size,
-                                                        random_state=30,
-                                                        stratify=bins_val_test)
-    return x_train_, x_val_, x_test_, y_train_, y_val_, y_test_
-
-
-def best_alpha_based_on_r2(model_type: str, alpha_hyperparameters: [float],
-                           x_train_: pd.DataFrame, y_train_: pd.DataFrame,
-                           x_val_: pd.DataFrame, y_val_: pd.DataFrame) \
-        -> float:
-    """
-    Returns the best alpha parameter in array of alpha hyperparameters
-    for the model selected and those training and validation sets
-
-    :param model_type: Model we will train. Values can be Lasso or Ridge
-    :type model_type: str
-    :param alpha_hyperparameters: Array with the alpha hyperparameters
-    to test for our model
-    :type alpha_hyperparameters: [float]
-    :param x_train_: Training set for variable x
-    :type x_train_: pd.Dataframe
-    :param y_train_: Training set for variable y
-    :type y_train_: pd.Dataframe
-    :param x_val_: Validation set for variable x
-    :type x_val_: pd.Dataframe
-    :param y_val_: Validation set for variable y
-    :type y_val_: pd.Dataframe
-    :return: Best alpha hyperparameter for the model
-    :rtype: float
-    """
-    print("Evaluating alpha hyperparameters for model {0}".format(model_type))
-    model_alphas_r2: {float: float} = {}
-    for alpha_ in alpha_hyperparameters:
-        print(f"alpha = {alpha_}")
-        if model_type.lower() == "ridge":
-            model: Ridge = Ridge(alpha=alpha_)
-        elif model_type.lower() == "lasso":
-            model: Lasso = Lasso(alpha=alpha_)
-        else:
-            raise ValueError("model_type valid values are Ridge and Lasso")
-        model.fit(x_train_, y_train_)
-        y_val_pred_: np.ndarray = model.predict(x_val_)
-        model_alphas_r2[alpha_] = r2_score(y_val_, y_val_pred_)
-        print("R2 score = {0}".format(model_alphas_r2[alpha_]))
-        regression_results(y_val_, y_val_pred_, model_type)
-    best_alpha: float = max(model_alphas_r2, key=model_alphas_r2.get)
-    return best_alpha
+    df_: pd.DataFrame = pd.concat(
+        (pd.read_csv(f) for f in csv_files),
+        ignore_index=True
+    )
+    return df_
 
 
 print("1. Let's open the file")
-df_exoplanets_nasa: pd.DataFrame = pd.read_csv(
-    'PS_2025.12.24_11.00.04_raw.csv', low_memory=False)
-print("1.1 Let's check its content")
-print(df_exoplanets_nasa.head())
+path: str = "./argo_files"
+df_argo: pd.DataFrame = open_csv_files_in_folder(path)
+print(df_argo.head())
 
 print("2. Data preprocessing")
 print("2.1 Dropping NA values")
 # There are enough records to be able to afford this, also there is no
 # good option to replace NA values
-df_exoplanets_nasa = df_exoplanets_nasa.dropna(
-    subset=['pl_bmassj', 'pl_rade', 'pl_orbper'])
+df_argo = df_argo.dropna(axis=0)
 
-# We need to remove outliers/limit cases (e.g., Brown Dwarfs or massive
-# stars)
-# This keeps the model focused on the "main" planetary relationship
-print("2.2 Let's remove outliers, limit cases like brown dwarfs or "
-      "massive stars")
-print("Filter: Max 20 Jupiter masses")
-df_exoplanets_nasa = df_exoplanets_nasa[df_exoplanets_nasa['pl_bmassj'] < 20]
-print("Filter: Max 3 Solar Masses")
-df_exoplanets_nasa = df_exoplanets_nasa[df_exoplanets_nasa['st_mass'] < 3]
-print("Filter: Handle log10 of zero/negative")
-# Filter 3: Handle the log10 of zero/negative (if any exist by error)
-df_exoplanets_nasa = df_exoplanets_nasa[(df_exoplanets_nasa['pl_bmassj'] > 0) &
-                                        (df_exoplanets_nasa['pl_rade'] > 0)]
-
-print("2.3 Turning all categorical features into numeric ones using"
+print("2.2 Turning all categorical features into numeric ones using"
       " get_dummies")
-df_exoplanets_nasa_encoded: pd.DataFrame = pd.get_dummies(df_exoplanets_nasa,
-                                                          drop_first=True)
-print("2.4 Recheck now columns, types and data")
-print(df_exoplanets_nasa_encoded.columns)
-print(df_exoplanets_nasa_encoded.head())
-print(df_exoplanets_nasa_encoded.dtypes)
+df_argo_encoded: pd.DataFrame = pd.get_dummies(df_argo,
+                                               drop_first=True)
+print("2.3 Recheck now columns, types and data")
+print(df_argo_encoded.columns)
+print(df_argo_encoded.head())
+print(df_argo_encoded.dtypes)
 
-print("2.5 Getting variable x and y")
-print("2.5.1 Variable y -> log10 of pl_bmassj")
-# We predict log-mass because planetary masses vary from 0.0001 to 30+
-# Jupiter masses.
-df_exoplanets_nasa_encoded['log_y'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_bmassj'])
+df = df_argo_encoded.sample(100)
 
-print("2.5.2 We need to apply log10 on log_pl_orbper and log_pl_rade "
-      "for variable x")
-# Key physical features also follow power laws (e.g.,
-# period-mass relationships).
-df_exoplanets_nasa_encoded['log_pl_orbper'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_orbper'])
-df_exoplanets_nasa_encoded['log_pl_rade'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_rade'])
+print("2.4 Getting variable x and y")
+print("2.4.1 Getting columns for x and y")
+y_col = ['PSAL_ADJUSTED (psu)']
 
-print("2.5.3 Getting columns for x and y")
-y_col = ['log_y']
+# Predictors: Using the exact column names from your index
 x_cols = [
-    # The "Good" Physical Predictors
-    'log_pl_orbper', 'log_pl_rade', 'st_teff', 'st_mass', 'st_lum', 'sy_dist',
+    'TEMP (degree_Celsius)',
+    'PRES (decibar)',
+    'LATITUDE (degree_north)',
+    'LONGITUDE (degree_east)',
+    "PLATFORM_CODE",
 ]
-pl_name_dummies: [str] = [c for c in df_exoplanets_nasa_encoded.columns
-                          if c.startswith("pl_name_")]
 
-x_cols = x_cols + pl_name_dummies
+print("2.4.2 Building variables x and y")
+df_x_pre: pd.DataFrame = df_argo_encoded[x_cols]
+df_y_pre: pd.DataFrame = df_argo_encoded[y_col]
 
-print("2.5.4 Building variables x and y")
-df_x_pre: pd.DataFrame = df_exoplanets_nasa_encoded[x_cols]
-df_y_pre: pd.DataFrame = df_exoplanets_nasa_encoded[y_col]
-
-print("2.6 Getting training, validation and testing sets")
-x_train_pre: pd.DataFrame
-x_val_pre: pd.DataFrame
-x_test_pre: pd.DataFrame
-y_train_pre: pd.DataFrame
-y_val_pre: pd.DataFrame
-y_test_pre: pd.DataFrame
-
-x_train_pre, x_val_pre, x_test_pre, y_train_pre, y_val_pre, y_test_pre = \
-    train_validate_test_split(df_x_pre, df_y_pre, y_col,
-                              train_size=0.5, val_size=0.5)
+print("2.6 Getting training and testing sets")
+x_train_pre, x_test_pre, y_train_pre, y_test_pre \
+    = train_test_split(df_x_pre, df_y_pre, random_state=42)
 
 print("2.7 Replacing NA values by median")
 x_imputer: SimpleImputer = SimpleImputer(strategy="median")
@@ -460,12 +344,6 @@ x_train_pre: pd.DataFrame = pd.DataFrame(
     x_imputer.transform(x_train_pre),
     columns=x_train_pre.columns,
     index=x_train_pre.index,
-)
-
-x_val_pre: pd.DataFrame = pd.DataFrame(
-    x_imputer.transform(x_val_pre),
-    columns=x_val_pre.columns,
-    index=x_val_pre.index,
 )
 
 x_test_pre: pd.DataFrame = pd.DataFrame(
@@ -481,12 +359,6 @@ y_train_pre: pd.DataFrame = pd.DataFrame(
     y_imputer.transform(y_train_pre),
     columns=y_train_pre.columns,
     index=y_train_pre.index,
-)
-
-y_val_pre: pd.DataFrame = pd.DataFrame(
-    y_imputer.transform(y_val_pre),
-    columns=y_val_pre.columns,
-    index=y_val_pre.index,
 )
 
 y_test_pre: pd.DataFrame = pd.DataFrame(
@@ -532,40 +404,12 @@ df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
 df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
                                              df_x_train_pre_non_numeric],
                                             axis=1)
-
-print("2.13 Getting only numeric features of validation set to "
-      "apply Standard Scaler later")
-x_val_pre_numeric_columns: pd.Index = \
-    x_val_pre.select_dtypes(include=['int64', 'float64']).columns
-print(x_val_pre_numeric_columns)
-print("2.14 Getting non-numeric features, in this case all boolean features")
-x_val_pre_non_numeric_cols: pd.Index = x_val_pre. \
-    select_dtypes(exclude=["int64", "float64"]).columns
-df_x_val_pre_non_numeric: pd.DataFrame = x_val_pre[
-    x_val_pre_non_numeric_cols]
-df_x_val_pre_numeric: pd.DataFrame = x_val_pre[
-    x_val_pre_numeric_columns]
-
-print("2.15 Applying Standard scale already trained for train set")
-x_val_numeric_scaled: np.ndarray = std_sclr.transform(df_x_val_pre_numeric)
-
-print("2.16 Binding non numeric features with scaled numeric features again")
-df_x_val_numeric_scaled: pd.DataFrame = pd.DataFrame(
-    x_val_numeric_scaled,
-    columns=x_val_pre_numeric_columns,
-    index=x_val_pre[x_val_pre_numeric_columns].index
-)
-
-df_x_val_scaled: pd.DataFrame = pd.concat([df_x_val_numeric_scaled,
-                                           df_x_val_pre_non_numeric],
-                                          axis=1)
-
-print("2.17 Getting only numeric features of test set to "
+print("2.13 Getting only numeric features of test set to "
       "apply Standard Scaler later")
 x_test_pre_numeric_columns: pd.Index = \
     x_test_pre.select_dtypes(include=['int64', 'float64']).columns
 print(x_test_pre_numeric_columns)
-print("2.18 Getting non-numeric features, in this case all boolean features")
+print("2.14 Getting non-numeric features, in this case all boolean features")
 x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
     select_dtypes(exclude=["int64", "float64"]).columns
 df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
@@ -573,10 +417,10 @@ df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
 df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
     x_test_pre_numeric_columns]
 
-print("2.19 Applying Standard scale already trained for train set")
+print("2.15 Applying Standard scale already trained for train set")
 x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
 
-print("2.20 Binding non numeric features with scaled numeric features again")
+print("2.16 Binding non numeric features with scaled numeric features again")
 df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
     x_test_numeric_scaled,
     columns=x_test_pre_numeric_columns,
@@ -588,10 +432,8 @@ df_x_test_scaled: pd.DataFrame = pd.concat([df_x_test_numeric_scaled,
                                            axis=1)
 
 x_train = df_x_train_scaled
-x_val = df_x_val_scaled
 x_test = df_x_test_scaled
 y_train = y_train_pre
-y_val = y_val_pre
 y_test = y_test_pre
 
 print("3. Training our models")
@@ -602,23 +444,13 @@ y_pred_linear: np.ndarray = lm.predict(x_test)
 regression_results(y_test, y_pred_linear, "Linear")
 
 print("Ridge Regression")
-ridge_alphas: [float] = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]
-best_ridge_alpha: float = best_alpha_based_on_r2(
-    "ridge", ridge_alphas, x_train, y_train, x_val, y_val)
-print(f"Best alpha for Ridge is: alpha = {best_ridge_alpha}")
-print("Training and testing with that value")
-lm_rid: Ridge = Ridge(alpha=best_ridge_alpha)
+lm_rid: Ridge = Ridge(alpha=100)
 lm_rid.fit(x_train, y_train)
 y_pred_ridge: np.ndarray = lm_rid.predict(x_test)
 regression_results(y_test, y_pred_ridge, "Ridge")
 
 print("Lasso Regression")
-lasso_alphas: [float] = [0.0001, 0.001, 0.01, 0.02, 0.05, 1, 10]
-best_lasso_alpha: float = best_alpha_based_on_r2(
-    "lasso", lasso_alphas, x_train, y_train, x_val, y_val)
-print(f"Best alpha for Lasso is: alpha = {best_lasso_alpha}")
-print("Training and testing with that value")
-lm_lasso: Lasso = Lasso(alpha=best_lasso_alpha, max_iter=10000)
+lm_lasso: Lasso = Lasso(alpha=0.01, max_iter=10000)
 lm_lasso.fit(x_train, y_train)
 y_pred_lasso: np.ndarray = lm_lasso.predict(x_test)
 regression_results(y_test, y_pred_lasso, "Lasso")
@@ -648,3 +480,243 @@ create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot,
                                      y_pred_lasso_series,
                                      "Lasso", "Lasso vs Actual", "red")
 plt.show()
+
+print("5. Cross validation: Getting R^2 scores")
+print("5.1 Building variables x and y from x_cols / y_col")
+df_x_pre: pd.DataFrame = df_argo_encoded.loc[:, x_cols].copy()
+df_y_pre: pd.DataFrame = df_argo_encoded.loc[:, y_col].copy()
+
+print("5.2 Getting numeric vs non-numeric columns within x_cols")
+x_numeric_cols: [str] = \
+    df_x_pre.select_dtypes(include=["int64", "float64"]).columns
+x_non_numeric_cols: [str] = df_x_pre.columns.difference(x_numeric_cols)
+
+df_x_num: pd.DataFrame = df_x_pre.loc[:, x_numeric_cols].copy()
+df_x_non: pd.DataFrame = df_x_pre.loc[:, x_non_numeric_cols].copy()
+
+print("5.3 Applying StandardScaler to numeric X only")
+std_sclr: StandardScaler = StandardScaler()
+numeric_scaled_array: np.ndarray = std_sclr.fit_transform(df_x_num)
+
+df_x_num_scaled: pd.DataFrame = pd.DataFrame(
+    numeric_scaled_array,
+    columns=df_x_num.columns,
+    index=df_x_num.index,
+)
+
+print("5.4 Recombining scaled numeric with non-numeric X")
+df_x: pd.DataFrame = pd.concat([df_x_num_scaled, df_x_non], axis=1)
+
+# IMPORTANT: ensure column order stays consistent (optional but recommended)
+df_x = df_x.loc[:, list(df_x_num_scaled.columns) + list(df_x_non.columns)]
+
+print("5.5 Imputing variable")
+# Recompute which columns are numeric after recombination / dropping
+x_numeric_cols2: [str] = df_x.select_dtypes(
+    include=["int64", "float64"]).columns
+x_non_numeric_cols2: [str] = df_x.columns.difference(x_numeric_cols2)
+
+print("5.6 Replacing NA with median for numeric columns")
+# Impute numeric part with median
+x_num_imputer: SimpleImputer = SimpleImputer(strategy="median")
+df_x_num_imputed: pd.DataFrame = pd.DataFrame(
+    x_num_imputer.fit_transform(df_x.loc[:, x_numeric_cols2]),
+    columns=x_numeric_cols2,
+    index=df_x.index,
+)
+
+print("5.7 Replacing NA with most frequent or bool columns")
+# Impute non-numeric part (bool) with most_frequent
+if len(x_non_numeric_cols2) > 0:
+    x_non_imputer: SimpleImputer = SimpleImputer(strategy="most_frequent")
+    df_x_non_imputed: pd.DataFrame = pd.DataFrame(
+        x_non_imputer.fit_transform(df_x.loc[:, x_non_numeric_cols2]),
+        columns=x_non_numeric_cols2,
+        index=df_x.index,
+    )
+else:
+    df_x_non_imputed: pd.DataFrame = pd.DataFrame(index=df_x.index)
+
+print("5.8 Binding columns for variable x again")
+df_x: pd.DataFrame = pd.concat([df_x_num_imputed, df_x_non_imputed], axis=1)
+df_x: pd.DataFrame = \
+    df_x.loc[:, list(x_numeric_cols2) + list(x_non_numeric_cols2)]
+
+print("5.9 Replacing NA for median for variable y")
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+df_y: pd.DataFrame = pd.DataFrame(
+    y_imputer.fit_transform(df_y_pre),
+    columns=y_col,
+    index=df_y_pre.index,
+)
+
+print("Done. Shapes:")
+print("X:", df_x.shape)
+print("y:", df_y.shape)
+
+print("6. Training the models again and using cross validation for get R2")
+lin_model_all: LinearRegression = LinearRegression()
+scores_lin: np.ndarray = cross_val_score(lin_model_all, df_x, df_y, cv=5)
+print("Linear Scores")
+print(scores_lin)
+print(np.mean(scores_lin))
+
+ridge_all: Ridge = Ridge(alpha=10)
+scores_ridge: np.ndarray = cross_val_score(ridge_all, df_x, df_y, cv=5)
+print("Ridge Scores")
+print(scores_ridge)
+print(np.mean(scores_ridge))
+
+lasso_all: Lasso = Lasso(alpha=0.02)
+scores_lasso: np.ndarray = cross_val_score(lasso_all, df_x, df_y, cv=5)
+print("Lasso Scores")
+print(scores_lasso)
+print(np.mean(scores_lasso))
+
+print("7. Post-processing")
+print("7.1 Getting model's coefficients")
+linear_coefficients: np.ndarray = lm.coef_
+ridge_coefficients: np.ndarray = lm_rid.coef_
+lasso_coefficients: np.ndarray = lm_lasso.coef_
+
+print("7.2 Comparing Lasso and Ridge coefficients to Linear")
+models_coefficients_: dict = {"Linear": linear_coefficients,
+                              "Ridge": ridge_coefficients,
+                              "Lasso": lasso_coefficients}
+colours_: [str] = ["red", "blue", "green"]
+
+create_plot_compare_coefficients(models_coefficients_, colours_)
+
+print("7.3 Applying Lasso reduction, removing every feature that is 0 "
+      "in Lasso's coefficients in the other models")
+df_linear_coef: pd.DataFrame = pd.DataFrame(
+    {"coefficients": linear_coefficients.ravel()})
+df_ridge_coef: pd.DataFrame = pd.DataFrame(
+    {"coefficients": ridge_coefficients.ravel()})
+df_lasso_coef: pd.DataFrame = pd.DataFrame(
+    {"coefficients": lasso_coefficients.ravel()})
+
+# To filter by Lasso, a typical strategy is to only keep the features
+# whose coefficients are not 0.
+# In this case, we keep the indexes of columns whose coefficient is not
+# 0
+ind_selected_features: [int] = \
+    df_lasso_coef[df_lasso_coef["coefficients"] != 0].index
+# We use the indexes to keep only those columns using iloc
+df_filtered_data: pd.DataFrame = df_x.iloc[:, ind_selected_features]
+
+print("7.4 Dividing the newly filtered data in training and testing sets")
+x_train_sel, x_test_sel, y_train_sel, y_test_sel = train_test_split(
+    df_filtered_data, df_y, test_size=0.6, random_state=42)
+
+x_imputer: SimpleImputer = SimpleImputer(strategy="median")
+
+x_imputer.fit(x_train_sel)
+
+x_train_sel: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_train_sel),
+    columns=x_train_sel.columns,
+    index=x_train_sel.index,
+)
+
+x_test_sel: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_test_sel),
+    columns=x_test_sel.columns,
+    index=x_test_sel.index,
+)
+
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+y_imputer.fit(y_train_sel)
+
+y_train_sel: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_train_sel),
+    columns=y_train_sel.columns,
+    index=y_train_sel.index,
+)
+
+y_test_sel: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_test_sel),
+    columns=y_test_sel.columns,
+    index=y_test_sel.index,
+)
+
+print("8. Training the models with the filtered data")
+print("Linear Regression (Filtered coefficients)")
+lm_sel: LinearRegression = LinearRegression()
+lm_sel.fit(x_train_sel, y_train_sel)
+y_pred_linear_sel: np.ndarray = lm_sel.predict(x_test_sel)
+regression_results(y_test_sel, y_pred_linear_sel, "Linear (Filtered "
+                                                  "coefficients)")
+
+print("Ridge Regression (Filtered coefficients)")
+lm_rid_sel: Ridge = Ridge(alpha=10)
+lm_rid_sel.fit(x_train_sel, y_train_sel)
+y_pred_ridge_sel: np.ndarray = lm_rid_sel.predict(x_test_sel)
+regression_results(y_test_sel, y_pred_ridge_sel, "Ridge (Filtered "
+                                                 "coefficients)")
+
+print("Lasso Regression (Filtered coefficients)")
+lm_lasso_sel: Lasso = Lasso(alpha=0.02)
+lm_lasso_sel.fit(x_train_sel, y_train_sel)
+y_pred_lasso_sel: np.ndarray = lm_lasso_sel.predict(x_test_sel)
+regression_results(y_test_sel, y_pred_lasso_sel, "Lasso")
+
+print("9. Plotting predictions vs actual data (after Lasso optimisation)")
+y_test_plot_sel = y_test_sel.reset_index(drop=True)
+y_pred_linear_sel_series = pd.Series(y_pred_linear_sel.ravel())
+y_pred_ridge_sel_series = pd.Series(y_pred_ridge_sel.ravel())
+y_pred_lasso_sel_series = pd.Series(y_pred_lasso_sel.ravel())
+_, axes = plt.subplots(2, 3, figsize=(18, 10), sharey=True)
+create_plot_scatter_actual_vs_predicted(axes, 0, 0, y_test_plot_sel,
+                                        y_pred_linear_sel_series,
+                                        "Linear", "Linear Regression")
+create_plot_scatter_actual_vs_predicted(axes, 0, 1, y_test_plot_sel,
+                                        y_pred_ridge_sel_series,
+                                        "Ridge", "Ridge Regression")
+create_plot_scatter_actual_vs_predicted(axes, 0, 2, y_test_plot_sel,
+                                        y_pred_lasso_sel_series,
+                                        "Lasso", "Lasso Regression")
+create_plot_line_actual_vs_predicted(axes, 1, 0, y_test_plot_sel,
+                                     y_pred_linear_sel_series,
+                                     "Linear", "Linear vs Actual", "red")
+create_plot_line_actual_vs_predicted(axes, 1, 1, y_test_plot_sel,
+                                     y_pred_ridge_sel_series,
+                                     "Ridge", "Ridge vs Actual", "green")
+create_plot_line_actual_vs_predicted(axes, 1, 2, y_test_plot_sel,
+                                     y_pred_lasso_sel_series,
+                                     "Lasso", "Lasso vs Actual", "red")
+plt.show()
+
+print("10. Cross validation: Getting R^2 score after Lasso optimisation")
+lin_model_all_sel: LinearRegression = LinearRegression()
+scores_lin_sel: np.ndarray = cross_val_score(
+    lin_model_all_sel, df_filtered_data, df_y, cv=5)
+print("Linear Scores")
+print(scores_lin_sel)
+print(np.mean(scores_lin_sel))
+
+ridge_all_sel: Ridge = Ridge(alpha=10)
+scores_ridge_sel: np.ndarray = cross_val_score(ridge_all_sel,
+                                               df_filtered_data, df_y, cv=5)
+print("Ridge Scores")
+print(scores_ridge_sel)
+print(np.mean(scores_ridge_sel))
+
+lasso_all_sel: Lasso = Lasso(alpha=0.022)
+scores_lasso_sel: np.ndarray = cross_val_score(lasso_all_sel,
+                                               df_filtered_data, df_y, cv=5)
+print("Lasso Scores")
+print(scores_lasso_sel)
+print(np.mean(scores_lasso_sel))
+
+print("11. Plotting Lasso and Ridge coefficients compared to Linear")
+linear_coefficients_sel: np.ndarray = lm_sel.coef_
+ridge_coefficients_sel: np.ndarray = lm_rid_sel.coef_
+lasso_coefficients_sel: np.ndarray = lm_lasso_sel.coef_
+
+models_coefficients_sel: dict = {"Linear": linear_coefficients_sel,
+                                 "Ridge": ridge_coefficients_sel,
+                                 "Lasso": lasso_coefficients_sel}
+colours_: [str] = ["red", "blue", "green"]
+
+create_plot_compare_coefficients(models_coefficients_sel, colours_)

@@ -1,3 +1,5 @@
+import os
+import glob
 import pandas as pd
 import numpy as np
 import scipy
@@ -10,15 +12,25 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import matplotlib.pyplot as plt
 
 """
-SOURCE: exoplanetarchive.ipac.caltech.edu
-Dataset: NASA Planetary Systems (Confirmed Planets)
-The dataset contains astrophysical parameters for all confirmed 
-exoplanets discovered and archived by NASA as of late 2025. 
-It includes orbital characteristics, planetary physical measurements, 
-and host star properties.
+SOURCE: fleetmonitoring.euro-argo.eu / dataselection.euro-argo.eu
+Dataset: Argo Global Marine Float Profile Data
+The dataset contains high-resolution oceanographic vertical profiles 
+collected by the international Argo float program as of early 2026. 
+It captures the physical state of the global ocean, measuring 
+subsurface temperature and salinity relative to pressure.
 
 More details on data: 
-exoplanetarchive.ipac.caltech.edudocs/API_PS_columns.html
+argo.ucsd.edu/data/data-visualizations/
+
+With this dataset, we will create a regression problem to predict ocean 
+Salinity using physical and positional predictors:
+
+Variable x: Independent variables
+Key features including Sea Water Pressure (PRES), Temperature (TEMP), 
+Latitude, Longitude, and temporal markers (Year/Month).
+
+Variable y: Dependent variable
+Practical Salinity (PSAL)
 
 This is an example about how to get the best alpha hyperparameter, 
 avoiding data snooping. In order to do so, you need to divide
@@ -31,13 +43,6 @@ best alpha hyperparameter
 With this dataset we will create a regression problem to predict the 
 mass of an exoplanet (log-transformed) using physical and stellar 
 predictors:
-
-Variable x: Independent variables
-Key features including log-transformed Radius and Orbital Period, 
-Stellar Mass, Luminosity, Temperature, and Distance.
-
-Variable y: Dependent variable
-Log-transformed Planet Mass (pl_bmassj)
 
 We will perform significant data preprocessing, including:
 - Filtering for confirmed planets with complete physical records.
@@ -60,21 +65,6 @@ We will display their evaluation metrics:
 - Mean Square Error (MSE)
 - Root Mean Square Error (RMSE)
 Pick the alpha hyperparameter with the best R^2 score
-
-We will compare the models to demonstrate how Lasso handles 
-high-dimensional noise and multicollinearity to maintain a high R^2
- (~0.77) while standard linear models may degrade or overfit.
-
-We will display the coefficients of Ridge and Lasso models compared to 
-Linear model's coefficients to identify the "Primary Physical Laws" 
-discovered by the models.
-
-Later, we will apply cross-validation to these models to assess the 
-robustness of the R^2 scores.
-
-Finally, we will perform feature selection using Lasso by removing 
-features with zero coefficients, demonstrating how Lasso simplifies the
- scientific model without losing predictive power.
 """
 
 
@@ -372,72 +362,168 @@ def best_alpha_based_on_r2(model_type: str, alpha_hyperparameters: [float],
     return best_alpha
 
 
+def open_csv_files_in_folder(path_: str) -> pd.DataFrame:
+    """
+    Given a path to a folder that contains csv files, it will open them
+    and concat their contents to a dataframe
+
+    :param path_: Path to the folder that contains the csv files
+    :type path_: str
+    :return: A dataframe that contains the contents of all the files
+    in the folder
+    :rtype: pd.Dataframe
+    """
+    csv_files: [str] = glob.glob(os.path.join(path_, "*.csv"))
+
+    df_: pd.DataFrame = pd.concat(
+        (pd.read_csv(f) for f in csv_files),
+        ignore_index=True
+    )
+    return df_
+
+
 print("1. Let's open the file")
-df_exoplanets_nasa: pd.DataFrame = pd.read_csv(
-    'PS_2025.12.24_11.00.04_raw.csv', low_memory=False)
-print("1.1 Let's check its content")
-print(df_exoplanets_nasa.head())
+path: str = "./argo_files"
+df_argo: pd.DataFrame = open_csv_files_in_folder(path)
+print(df_argo.head())
 
 print("2. Data preprocessing")
 print("2.1 Dropping NA values")
 # There are enough records to be able to afford this, also there is no
 # good option to replace NA values
-df_exoplanets_nasa = df_exoplanets_nasa.dropna(
-    subset=['pl_bmassj', 'pl_rade', 'pl_orbper'])
+df_argo = df_argo.dropna(axis=0)
 
 # We need to remove outliers/limit cases (e.g., Brown Dwarfs or massive
 # stars)
 # This keeps the model focused on the "main" planetary relationship
-print("2.2 Let's remove outliers, limit cases like brown dwarfs or "
-      "massive stars")
-print("Filter: Max 20 Jupiter masses")
-df_exoplanets_nasa = df_exoplanets_nasa[df_exoplanets_nasa['pl_bmassj'] < 20]
-print("Filter: Max 3 Solar Masses")
-df_exoplanets_nasa = df_exoplanets_nasa[df_exoplanets_nasa['st_mass'] < 3]
-print("Filter: Handle log10 of zero/negative")
-# Filter 3: Handle the log10 of zero/negative (if any exist by error)
-df_exoplanets_nasa = df_exoplanets_nasa[(df_exoplanets_nasa['pl_bmassj'] > 0) &
-                                        (df_exoplanets_nasa['pl_rade'] > 0)]
 
-print("2.3 Turning all categorical features into numeric ones using"
+print("2.2 Turning all categorical features into numeric ones using"
       " get_dummies")
-df_exoplanets_nasa_encoded: pd.DataFrame = pd.get_dummies(df_exoplanets_nasa,
-                                                          drop_first=True)
-print("2.4 Recheck now columns, types and data")
-print(df_exoplanets_nasa_encoded.columns)
-print(df_exoplanets_nasa_encoded.head())
-print(df_exoplanets_nasa_encoded.dtypes)
+df_argo_encoded: pd.DataFrame = pd.get_dummies(df_argo,
+                                               drop_first=True)
+print("2.3 Recheck now columns, types and data")
+print(df_argo_encoded.columns)
+print(df_argo_encoded.head())
+print(df_argo_encoded.dtypes)
 
-print("2.5 Getting variable x and y")
-print("2.5.1 Variable y -> log10 of pl_bmassj")
-# We predict log-mass because planetary masses vary from 0.0001 to 30+
-# Jupiter masses.
-df_exoplanets_nasa_encoded['log_y'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_bmassj'])
+df = df_argo_encoded.sample(100)
 
-print("2.5.2 We need to apply log10 on log_pl_orbper and log_pl_rade "
-      "for variable x")
-# Key physical features also follow power laws (e.g.,
-# period-mass relationships).
-df_exoplanets_nasa_encoded['log_pl_orbper'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_orbper'])
-df_exoplanets_nasa_encoded['log_pl_rade'] = np.log10(
-    df_exoplanets_nasa_encoded['pl_rade'])
+print("2.4 Getting variable x and y")
+print("2.4.1 Getting columns for x and y")
+y_col = ['PSAL_ADJUSTED (psu)']
 
-print("2.5.3 Getting columns for x and y")
-y_col = ['log_y']
+# Predictors: Using the exact column names from your index
 x_cols = [
-    # The "Good" Physical Predictors
-    'log_pl_orbper', 'log_pl_rade', 'st_teff', 'st_mass', 'st_lum', 'sy_dist',
+    'TEMP (degree_Celsius)',
+    'PRES (decibar)',
+    'LATITUDE (degree_north)',
+    'LONGITUDE (degree_east)',
+    "PLATFORM_CODE",
 ]
-pl_name_dummies: [str] = [c for c in df_exoplanets_nasa_encoded.columns
-                          if c.startswith("pl_name_")]
 
-x_cols = x_cols + pl_name_dummies
+print("2.4.2 Building variables x and y")
+df_x_pre: pd.DataFrame = df_argo_encoded[x_cols]
+df_y_pre: pd.DataFrame = df_argo_encoded[y_col]
 
-print("2.5.4 Building variables x and y")
-df_x_pre: pd.DataFrame = df_exoplanets_nasa_encoded[x_cols]
-df_y_pre: pd.DataFrame = df_exoplanets_nasa_encoded[y_col]
+print("2.6 Getting training and testing sets")
+x_train_pre, x_test_pre, y_train_pre, y_test_pre \
+    = train_test_split(df_x_pre, df_y_pre, random_state=42)
+
+print("2.7 Replacing NA values by median")
+x_imputer: SimpleImputer = SimpleImputer(strategy="median")
+
+x_imputer.fit(x_train_pre)
+
+x_train_pre: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_train_pre),
+    columns=x_train_pre.columns,
+    index=x_train_pre.index,
+)
+
+x_test_pre: pd.DataFrame = pd.DataFrame(
+    x_imputer.transform(x_test_pre),
+    columns=x_test_pre.columns,
+    index=x_test_pre.index,
+)
+
+y_imputer: SimpleImputer = SimpleImputer(strategy="median")
+y_imputer.fit(y_train_pre)
+
+y_train_pre: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_train_pre),
+    columns=y_train_pre.columns,
+    index=y_train_pre.index,
+)
+
+y_test_pre: pd.DataFrame = pd.DataFrame(
+    y_imputer.transform(y_test_pre),
+    columns=y_test_pre.columns,
+    index=y_test_pre.index,
+)
+
+print("2.8 Getting p-values and correlation coefficients for each feature")
+for col in x_train_pre.columns:
+    pearson_coef, p_value = scipy.stats.pearsonr(
+        x_train_pre[col].to_numpy().ravel(),
+        y_train_pre[y_col].to_numpy().ravel())
+    print(f"{col}: Pearson Coefficient = {pearson_coef: .4f}, "
+          f"p-value = {p_value: .4e}")
+
+print("2.9 Getting only numeric features of train set to "
+      "apply Standard Scaler later")
+x_train_pre_numeric_columns: pd.Index = \
+    x_train_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_train_pre_numeric_columns)
+print("2.10 Getting non-numeric features, in this case all boolean features")
+x_train_pre_non_numeric_cols: pd.Index = x_train_pre. \
+    select_dtypes(exclude=["int64", "float64"]).columns
+df_x_train_pre_non_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_non_numeric_cols]
+df_x_train_pre_numeric: pd.DataFrame = x_train_pre[
+    x_train_pre_numeric_columns]
+print("")
+
+print("2.11 Applying standard scaler to numeric features in train set")
+std_sclr: StandardScaler = StandardScaler()
+std_sclr.fit(df_x_train_pre_numeric)
+x_train_numeric_scaled: np.ndarray = std_sclr.transform(df_x_train_pre_numeric)
+
+print("2.12 Binding non numeric features with scaled numeric features again")
+df_x_train_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_train_numeric_scaled,
+    columns=x_train_pre_numeric_columns,
+    index=x_train_pre[x_train_pre_numeric_columns].index
+)
+
+df_x_train_scaled: pd.DataFrame = pd.concat([df_x_train_numeric_scaled,
+                                             df_x_train_pre_non_numeric],
+                                            axis=1)
+print("2.13 Getting only numeric features of test set to "
+      "apply Standard Scaler later")
+x_test_pre_numeric_columns: pd.Index = \
+    x_test_pre.select_dtypes(include=['int64', 'float64']).columns
+print(x_test_pre_numeric_columns)
+print("2.14 Getting non-numeric features, in this case all boolean features")
+x_test_pre_non_numeric_cols: pd.Index = x_test_pre. \
+    select_dtypes(exclude=["int64", "float64"]).columns
+df_x_test_pre_non_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_non_numeric_cols]
+df_x_test_pre_numeric: pd.DataFrame = x_test_pre[
+    x_test_pre_numeric_columns]
+
+print("2.15 Applying Standard scale already trained for train set")
+x_test_numeric_scaled: np.ndarray = std_sclr.transform(df_x_test_pre_numeric)
+
+print("2.16 Binding non numeric features with scaled numeric features again")
+df_x_test_numeric_scaled: pd.DataFrame = pd.DataFrame(
+    x_test_numeric_scaled,
+    columns=x_test_pre_numeric_columns,
+    index=x_test_pre[x_test_pre_numeric_columns].index
+)
+
+df_x_test_scaled: pd.DataFrame = pd.concat([df_x_test_numeric_scaled,
+                                            df_x_test_pre_non_numeric],
+                                           axis=1)
 
 print("2.6 Getting training, validation and testing sets")
 x_train_pre: pd.DataFrame
@@ -602,7 +688,7 @@ y_pred_linear: np.ndarray = lm.predict(x_test)
 regression_results(y_test, y_pred_linear, "Linear")
 
 print("Ridge Regression")
-ridge_alphas: [float] = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]
+ridge_alphas: [float] = [10**i for i in range(-15, 15)]
 best_ridge_alpha: float = best_alpha_based_on_r2(
     "ridge", ridge_alphas, x_train, y_train, x_val, y_val)
 print(f"Best alpha for Ridge is: alpha = {best_ridge_alpha}")
@@ -613,7 +699,7 @@ y_pred_ridge: np.ndarray = lm_rid.predict(x_test)
 regression_results(y_test, y_pred_ridge, "Ridge")
 
 print("Lasso Regression")
-lasso_alphas: [float] = [0.0001, 0.001, 0.01, 0.02, 0.05, 1, 10]
+lasso_alphas: [float] = [10**i for i in range(-15, 15)]
 best_lasso_alpha: float = best_alpha_based_on_r2(
     "lasso", lasso_alphas, x_train, y_train, x_val, y_val)
 print(f"Best alpha for Lasso is: alpha = {best_lasso_alpha}")
