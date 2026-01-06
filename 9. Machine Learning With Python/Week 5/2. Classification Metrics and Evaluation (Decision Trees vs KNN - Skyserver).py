@@ -211,7 +211,8 @@ for i in range(0, len(recall_score_knn)):
     print("")
 
 print("8. Confusion Matrix")
-confusion_matrix_des_tree: np.ndarray = confusion_matrix(y_test, y_pred_des_tree)
+confusion_matrix_des_tree: np.ndarray = \
+    confusion_matrix(y_test, y_pred_des_tree)
 confusion_matrix_knn: np.ndarray = confusion_matrix(y_test, y_pred_knn)
 print(confusion_matrix_des_tree)
 print(confusion_matrix_knn)
